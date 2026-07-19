@@ -1,0 +1,39 @@
+package com.bbangpatrol.domain.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "item")
+@Getter
+@Builder
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+public class Item {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    @Column(name = "is_visible", nullable = false)
+    private Boolean visible;
+
+    @Lob private String origin;
+
+    @Lob
+    @Column(name = "imageUrl")
+    private String imageUrl;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "item")
+    private List<UserItem> userItems = new ArrayList<>();
+}
