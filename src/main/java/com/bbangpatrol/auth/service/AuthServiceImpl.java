@@ -4,7 +4,7 @@ import com.bbangpatrol.auth.dto.KakaoUserInfo;
 import com.bbangpatrol.auth.repository.RefreshTokenRepository;
 import com.bbangpatrol.auth.repository.UserRepository;
 import com.bbangpatrol.user.entity.User;
-import com.bbangpatrol.util.client.KakaoOAuthClient;
+import com.bbangpatrol.common.client.KakaoOAuthClient;
 import com.bbangpatrol.auth.dto.LoginRequest;
 import com.bbangpatrol.auth.dto.LoginResult;
 import com.bbangpatrol.util.jwt.JwtProvider;

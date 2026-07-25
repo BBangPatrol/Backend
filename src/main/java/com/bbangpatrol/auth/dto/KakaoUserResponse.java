@@ -4,20 +4,21 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public record KakaoUserResponse(
         Long id,
-        @JsonProperty("kakao_account")
-        KakaoAccount kakaoAccount
+        @JsonProperty("kakao_account") KakaoAccount kakaoAccount
 ) {
     public record KakaoAccount(
             String email,
             Profile profile
     ) {
-        public record Profile(String name) {}
+        public record Profile(
+                @JsonProperty("nickname") String name
+        ) {}
     }
 
     public KakaoUserInfo toUserInfo() {
         String email = (kakaoAccount != null) ? kakaoAccount.email() : null;
         String name = (kakaoAccount != null && kakaoAccount.profile() != null)
                 ? kakaoAccount.profile().name() : null;
-        return new KakaoUserInfo(id, email, name);  // KakaoUserInfo(kakaoId, email, name)
+        return new KakaoUserInfo(id, email, name);
     }
 }

@@ -1,4 +1,4 @@
-package com.bbangpatrol.util.client;
+package com.bbangpatrol.common.client;
 
 import com.bbangpatrol.auth.dto.KakaoTokenResponse;
 import com.bbangpatrol.auth.dto.KakaoUserInfo;
@@ -14,6 +14,8 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.charset.StandardCharsets;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -24,6 +26,9 @@ public class KakaoOAuthClient {
 
     @Value("${kakao.redirect-uri}")
     private String redirectUri;
+
+    @Value("${kakao.client.secret}")
+    private String clientSecret;
 
     private static final String TOKEN_URI = "https://kauth.kakao.com/oauth/token"; // 인가 코드를 카카오 엑세스 토큰으로 교환해주는 주소
     private static final String USER_INFO_URI = "https://kapi.kakao.com/v2/user/me";// 발급 받은 엑세스 토큰으로 사용자 정보를 조회하는 주소
@@ -36,6 +41,7 @@ public class KakaoOAuthClient {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", "authorization_code");
         form.add("client_id", clientId);
+        form.add("client_secret", clientSecret);
         form.add("redirect_uri", redirectUri);
         form.add("code", code);
 
@@ -45,10 +51,15 @@ public class KakaoOAuthClient {
                 .body(form)
                 .retrieve()
                 .onStatus(status -> status.isError(), (req, res) -> {
-                    log.error("[KakaoOAuthClient] 토큰 발급 실패: {}", res.getStatusCode());
-                    // 이 부분 추후에 401로 변경 필요
+                    String errorBody = new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8);
+                    log.error("[KakaoOAuthClient] 토큰 발급 실패: {} body: {}", res.getStatusCode(), errorBody);
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "카카오 토큰 발급에 실패했습니다.");
                 })
+//                .onStatus(status -> status.isError(), (req, res) -> {
+//                    log.error("[KakaoOAuthClient] 토큰 발급 실패: {}", res.getStatusCode());
+//                    // 이 부분 추후에 401로 변경 필요
+//                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "카카오 토큰 발급에 실패했습니다.");
+//                })
                 .body(KakaoTokenResponse.class);
 
         if (response == null || response.accessToken() == null) {

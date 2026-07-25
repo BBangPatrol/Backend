@@ -4,7 +4,7 @@ import com.bbangpatrol.auth.dto.LoginRequest;
 import com.bbangpatrol.auth.dto.LoginResponse;
 import com.bbangpatrol.auth.dto.LoginResult;
 import com.bbangpatrol.auth.service.AuthService;
-import com.bbangpatrol.util.ApiResponse;
+import com.bbangpatrol.common.util.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
