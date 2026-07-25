@@ -3,7 +3,7 @@ package com.bbangpatrol.auth.service;
 import com.bbangpatrol.auth.dto.KakaoUserInfo;
 import com.bbangpatrol.auth.repository.RefreshTokenRepository;
 import com.bbangpatrol.auth.repository.UserRepository;
-import com.bbangpatrol.domain.entity.User;
+import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.util.client.KakaoOAuthClient;
 import com.bbangpatrol.auth.dto.LoginRequest;
 import com.bbangpatrol.auth.dto.LoginResult;
