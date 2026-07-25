@@ -24,7 +24,7 @@ public class AuthServiceImpl implements AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
 
 
-    // 로그인 관련
+    // 로그인 / 회원가입 관련
     @Override
     @Transactional
     public LoginResult login(LoginRequest loginRequest) {
