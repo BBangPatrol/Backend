@@ -18,7 +18,7 @@ public class BakeryImage {
     @Lob private String origin;
 
     @Lob
-    @Column(name = "imageUrl")
+    @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -57,9 +57,6 @@ public class Bakery {
     @Column(length = 255)
     private String summary;
 
-    @Column(name = "Field", length = 255)
-    private String field;
-
     @Builder.Default
     @OneToMany(mappedBy = "bakery")
     private List<Review> reviews = new ArrayList<>();
