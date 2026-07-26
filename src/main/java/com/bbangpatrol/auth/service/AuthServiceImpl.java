@@ -10,8 +10,11 @@ import com.bbangpatrol.auth.dto.LoginResult;
 import com.bbangpatrol.util.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +25,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final StringRedisTemplate redisTemplate;
 
 
     // 로그인 / 회원가입 관련
@@ -55,5 +59,25 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenRepository.save(user.getId(), refreshToken);
 
         return new LoginResult(accessToken, refreshToken, isNewUser); // 토큰 두 개랑, 신규 유저 여부 리턴
+    }
+
+    // 로그아웃 관련
+    @Override
+    public void logout(Long userId, String accessToken) {
+        log.info("[AuthServiceImpl] 로그아웃 수행, userId: {}", userId);
+
+        // 기존의 refresh token redis에서 삭제
+        if (userId != null) refreshTokenRepository.delete(userId);
+
+        if (accessToken != null) {
+            long remaining = jwtProvider.getExpiration(accessToken);
+            if (remaining > 0) { // 기존에 남은 시간만큼을 유효기간으로 해서 redis에 블랙리스트로 등록
+                redisTemplate.opsForValue().set(
+                        "BL:" + accessToken,
+                        "logout", // 사유는 로그아웃
+                        Duration.ofMillis(remaining)
+                );
+            }
+        }
     }
 }
