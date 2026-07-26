@@ -4,6 +4,8 @@ import com.bbangpatrol.auth.dto.KakaoUserInfo;
 import com.bbangpatrol.auth.dto.ReissueResult;
 import com.bbangpatrol.auth.repository.RefreshTokenRepository;
 import com.bbangpatrol.auth.repository.UserRepository;
+import com.bbangpatrol.common.exception.ApiException;
+import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.common.client.KakaoOAuthClient;
 import com.bbangpatrol.auth.dto.LoginRequest;
@@ -33,6 +35,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public LoginResult login(LoginRequest loginRequest) {
+        if(loginRequest.code() == null || loginRequest.code().isBlank()) {
+            throw new ApiException(ErrorCode.NO_KAKAO_CODE);
+        }
+
         log.info("[AuthServiceImpl] 로그인 시도 감지, 카카오 인가 코드: {}", loginRequest.code());
 
         // 인가 코드로 accessToken 가져오기
