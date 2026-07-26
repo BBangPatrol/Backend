@@ -9,6 +9,8 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+use bbangpatrol;
+
 DROP TABLE IF EXISTS visit_detail;
 DROP TABLE IF EXISTS visits;
 DROP TABLE IF EXISTS point_history;
@@ -99,6 +101,7 @@ CREATE TABLE mission (
                          reward_point  INT          NULL,
                          title         VARCHAR(100) NOT NULL,
                          description   TINYTEXT     NULL,
+                         mission_type	ENUM('receipt', 'bakery', 'collection'),
                          region        VARCHAR(255) NOT NULL,
                          target_count  INT          NOT NULL,
                          start_date    DATE         NULL,

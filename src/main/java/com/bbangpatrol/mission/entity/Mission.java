@@ -28,6 +28,10 @@ public class Mission {
 
     @Lob private String description;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MissionStatus status;
+
     @Column(nullable = false)
     private Region region;
 
