@@ -5,27 +5,27 @@ import com.bbangpatrol.auth.dto.LoginResponse;
 import com.bbangpatrol.auth.dto.LoginResult;
 import com.bbangpatrol.auth.service.AuthService;
 import com.bbangpatrol.common.util.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/auth")
 public class AuthController {
 
     private final AuthService authService;
 
-    @PostMapping("/auth/login")
+    @PostMapping("/login") // 로그인
     ResponseEntity<ApiResponse<LoginResponse>> login(
             @RequestBody @Valid LoginRequest loginRequest) {
 
@@ -57,6 +57,37 @@ public class AuthController {
                         HttpStatus.OK,
                         "로그인에 성공했습니다.",
                         response
+                ));
+    }
+
+    @PostMapping("/logout") // 로그아웃
+    ResponseEntity<ApiResponse<Void>> logout(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            @AuthenticationPrincipal Long userId) {
+
+        String bearerToken = request.getHeader("Authorization");
+        String accessToken = null;
+
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            accessToken = bearerToken.substring(7);  // "Bearer " 7글자 제거
+        }
+        // 로그아웃 요청 처리
+        authService.logout(userId, accessToken);
+
+        // refresh 쿠키 제거
+        ResponseCookie deleteCookie = ResponseCookie.from("refreshToken", "")
+                .httpOnly(true).secure(true).sameSite("Strict")
+                .path("/api/v1/auth/refresh")
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, deleteCookie.toString());
+
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(ApiResponse.onSuccess(
+                        HttpStatus.OK,
+                        "로그아웃에 성공했습니다.",
+                        null // 데이터는 없음
                 ));
     }
 }
