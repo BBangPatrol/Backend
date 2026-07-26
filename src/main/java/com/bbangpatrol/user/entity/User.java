@@ -1,12 +1,12 @@
 package com.bbangpatrol.user.entity;
 
 import com.bbangpatrol.bookmark.entity.Bookmark;
-import com.bbangpatrol.visit.entity.Visit;
 import com.bbangpatrol.item.entity.UserItem;
 import com.bbangpatrol.mission.entity.MissionProgress;
 import com.bbangpatrol.point.entity.PointHistory;
 import com.bbangpatrol.review.entity.Review;
 import com.bbangpatrol.review.entity.ReviewLike;
+import com.bbangpatrol.visit.entity.Visit;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -25,7 +25,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(nullable = false, length = 50) // 이름이 중복될 수도 있어서 Unique 제약 삭제
     private String name;
 
     @Column(length = 255)
@@ -84,4 +84,16 @@ public class User {
     @Builder.Default
     @OneToMany(mappedBy = "user")
     private List<UserItem> userItems = new ArrayList<>();
+
+    public static User ofKakao(Long kakaoId, String email, String name) {
+        return User.builder()
+                .name(name)                       // 카카오에서 가져온 이름 바로 사용
+                .email(email)
+                .kakaoId(String.valueOf(kakaoId)) // Long에서 String 변환
+                .rank(1)                          // 초기 등급
+                .pointBalance(0)                  // 초기 포인트
+                .role(UserRole.USER)              // 역할은 USER로 고정
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
 }
