@@ -53,6 +53,9 @@ public class User {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @OneToOne(mappedBy = "user")
+    private UserImage userImage;
+
     @Builder.Default
     @OneToMany(mappedBy = "user")
     private List<Review> reviews = new ArrayList<>();
@@ -72,10 +75,6 @@ public class User {
     @Builder.Default
     @OneToMany(mappedBy = "user")
     private List<PointHistory> pointHistories = new ArrayList<>();
-
-    @Builder.Default
-    @OneToMany(mappedBy = "user")
-    private List<UserImage> userImages = new ArrayList<>();
 
     @Builder.Default
     @OneToMany(mappedBy = "user")
