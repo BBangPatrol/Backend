@@ -15,6 +15,10 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(errorCode.getStatus())
-                .body(errorCode.getErrorResponse());
+                .body(ApiResponse.onFailure(
+                        errorCode.getCode(),
+                        errorCode.getMessage(),
+                        exception.getErrors()
+                ));
     }
 }
