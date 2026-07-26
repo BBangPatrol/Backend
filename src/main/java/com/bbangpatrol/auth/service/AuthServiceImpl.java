@@ -1,6 +1,7 @@
 package com.bbangpatrol.auth.service;
 
 import com.bbangpatrol.auth.dto.KakaoUserInfo;
+import com.bbangpatrol.auth.dto.ReissueResult;
 import com.bbangpatrol.auth.repository.RefreshTokenRepository;
 import com.bbangpatrol.auth.repository.UserRepository;
 import com.bbangpatrol.user.entity.User;
@@ -79,5 +80,29 @@ public class AuthServiceImpl implements AuthService {
                 );
             }
         }
+    }
+
+    // 토큰 재발급 관련
+    @Override
+    public ReissueResult reissue(String refreshToken) {
+        log.info("[AuthServiceImpl] 토큰 재발급 수행, 기존의 refresh token: {}", refreshToken);
+
+        if(!jwtProvider.validateToken(refreshToken)) { // 유효하지 않은 토큰일 경우
+            throw new RuntimeException();
+        }
+
+        // 토큰에서 userId 추출
+        Long userId = jwtProvider.getUserId(refreshToken);
+
+        if (!refreshTokenRepository.isValid(userId, refreshToken)) { // 기존 refresh token과 userId가 일치하지 않으면 에러
+            refreshTokenRepository.delete(userId);
+            throw new RuntimeException();
+        }
+
+        String newAccess = jwtProvider.createAccessToken(userId);
+        String newRefresh = jwtProvider.createRefreshToken(userId);
+        refreshTokenRepository.save(userId, newRefresh);
+
+        return new ReissueResult(newAccess, newRefresh);
     }
 }

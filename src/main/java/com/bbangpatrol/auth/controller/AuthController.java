@@ -1,8 +1,6 @@
 package com.bbangpatrol.auth.controller;
 
-import com.bbangpatrol.auth.dto.LoginRequest;
-import com.bbangpatrol.auth.dto.LoginResponse;
-import com.bbangpatrol.auth.dto.LoginResult;
+import com.bbangpatrol.auth.dto.*;
 import com.bbangpatrol.auth.service.AuthService;
 import com.bbangpatrol.common.util.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -35,7 +34,7 @@ public class AuthController {
                 .httpOnly(true)
                 .secure(true)
                 .sameSite("Strict")
-                .path("/api/v1/auth/refresh")
+                .path("/api/v1/auth")
                 .maxAge(Duration.ofDays(7))
                 .build();
 
@@ -78,7 +77,7 @@ public class AuthController {
         // refresh 쿠키 제거
         ResponseCookie deleteCookie = ResponseCookie.from("refreshToken", "")
                 .httpOnly(true).secure(true).sameSite("Strict")
-                .path("/api/v1/auth/refresh")
+                .path("/api/v1/auth")
                 .maxAge(0)
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, deleteCookie.toString());
@@ -89,5 +88,33 @@ public class AuthController {
                         "로그아웃에 성공했습니다.",
                         null // 데이터는 없음
                 ));
+    }
+
+    // access token 재발급
+    @PostMapping("/reissue")
+    ResponseEntity<ApiResponse<ReissueResponse>> reissue(
+            @CookieValue(value = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response) {
+
+        ReissueResult result = authService.reissue(refreshToken);
+
+        // 새로 발급받은 refresh token은 header에 담기
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", result.refreshToken())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/api/v1/auth")
+                .maxAge(Duration.ofDays(7))
+                .build();
+        // 쿠키에 refresh token 저장
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+        // 새로 발급 받은 access token 담기
+        ReissueResponse data = new ReissueResponse(result.accessToken());
+
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(ApiResponse.onSuccess(
+                        HttpStatus.OK,
+                        "토큰 재발급에 성공했습니다.",
+                        data));
     }
 }
