@@ -22,7 +22,7 @@ public record MissionResponse(
     public static MissionResponse from(Mission mission, MissionProgress progress) {
         int count = 0;
         LocalDateTime completedAt = null;
-        String status = MissionStatus.not_received.name();
+        String status = MissionStatus.in_progress.name();
 
         if (progress != null) {
             count = progress.getCount();
