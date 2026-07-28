@@ -101,7 +101,7 @@ CREATE TABLE mission (
                          reward_point  INT          NULL,
                          title         VARCHAR(100) NOT NULL,
                          description   TINYTEXT     NULL,
-                         mission_type	ENUM('receipt', 'bakery', 'collection'),
+                         mission_type	ENUM('receipt', 'review', 'bakery', 'collection'),
                          region        VARCHAR(255) NOT NULL,
                          target_count  INT          NOT NULL,
                          start_date    DATE         NULL,

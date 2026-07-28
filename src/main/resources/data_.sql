@@ -446,7 +446,7 @@ insert into keyword(label) values ('커피 맛집'), ('디저트 맛집'), ('메
 INSERT INTO MISSION(region, mission_type, title, description, target_count, reward_point) VALUES
 -- 입문
 ('구역없음', 'RECEIPT',    '첫 영수증 인증', '영수증 인증 1회 시도하기', 1, 100),
-('구역없음', 'REVIEW',     '첫 리뷰 작성', '리뷰 1회 달기', 1, 50),          -- enum에 REVIEW 추가 필요
+('구역없음', 'REVIEW',     '첫 리뷰 작성', '리뷰 1회 달기', 1, 50),
 ('구역없음', 'COLLECTION', '첫 가챠 뽑기', '꿈돌이 뽑기 1회 시도하기', 1, 25),
 ('구역없음', 'BAKERY',     '빵지순례 시작하기', '첫 번째 빵집 방문 기록 남기기', 1, 30),
 

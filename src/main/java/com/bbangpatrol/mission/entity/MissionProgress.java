@@ -1,8 +1,12 @@
 package com.bbangpatrol.mission.entity;
 
+import com.bbangpatrol.common.exception.ApiException;
+import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -40,4 +44,27 @@ public class MissionProgress {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "mission_id")
     private Mission mission;
+
+    public void receiveReward() {
+        if (this.status == MissionStatus.completed) {
+            throw new ApiException(ErrorCode.ALREADY_REWARDED);
+        }
+        if (this.status != MissionStatus.not_received) {
+            throw new ApiException(ErrorCode.MISSION_NOT_COMPLETED);
+        }
+        this.status = MissionStatus.completed;
+        this.updatedAt = LocalDateTime.now();
+        this.completedAt = LocalDateTime.now();
+    }
+
+    public void increaseCount() {
+        if (this.status != MissionStatus.in_progress) {
+            throw new IllegalStateException("더이상 횟수를 올릴 수 없습니다.");
+        }
+        this.count++;
+        if (this.count >= mission.getTargetCount()) {
+            this.count = mission.getTargetCount();
+            this.status = MissionStatus.not_received;
+        }
+    }
 }
