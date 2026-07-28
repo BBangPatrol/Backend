@@ -29,10 +29,6 @@ public class Mission {
     @Lob private String description;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private MissionStatus status;
-
-    @Enumerated(EnumType.STRING)
     @Column(name = "mission_type")
     private MissionType missionType;
 
