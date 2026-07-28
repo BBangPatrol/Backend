@@ -95,4 +95,8 @@ public class User {
                 .createdAt(LocalDateTime.now())
                 .build();
     }
+
+    public void addPoint(int point) {
+        this.pointBalance += point;
+    }
 }

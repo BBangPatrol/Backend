@@ -11,6 +11,14 @@ public enum ErrorCode implements BaseErrorCode{
     // Auth에 관한 에러들
     NO_KAKAO_CODE(HttpStatus.BAD_REQUEST, "AUTH400", "로그인 요청이 올바르지 않습니다."),
 
+    // Mission에 관한 에러
+    MISSION_PROGRESS_NOT_FOUND(HttpStatus.NOT_FOUND, "MISSION404", "존재하지 않는 미션 번호입니다."),
+    ALREADY_REWARDED(HttpStatus.BAD_REQUEST, "MISSION400", "이미 보상을 수령한 미션입니다."),
+    MISSION_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "MISSION401", "아직 완료되지 않은 미션입니다."),
+
+    // user에 관한 에러
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER404", "사용자가 존재하지 않습니다."),
+
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "COMMON400", "잘못된 요청입니다."),
     UNAUTHORIZED_401(HttpStatus.UNAUTHORIZED, "COMMON401", "인증이 필요합니다"),
     FORBIDDEN_403(HttpStatus.FORBIDDEN, "COMMON403", "접근이 금지되었습니다"),

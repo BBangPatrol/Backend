@@ -29,8 +29,8 @@ public class Mission {
     @Lob private String description;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private MissionStatus status;
+    @Column(name = "mission_type")
+    private MissionType missionType;
 
     @Column(nullable = false)
     private Region region;
@@ -50,4 +50,5 @@ public class Mission {
     @Builder.Default
     @OneToMany(mappedBy = "mission")
     private List<MissionProgress> missionProgresses = new ArrayList<>();
+
 }
