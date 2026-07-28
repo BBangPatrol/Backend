@@ -68,6 +68,7 @@ CREATE TABLE bakery (
                         updated_at      DATETIME      NULL,
                         deleted_at      DATETIME      NULL,
                         summary         VARCHAR(255)  NULL,
+                        content         TEXT          NULL,
                         PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

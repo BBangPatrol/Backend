@@ -443,7 +443,7 @@ insert into keyword(label) values ('커피 맛집'), ('디저트 맛집'), ('메
 	시연을 위해 미션을 많이 생성하진 않았음.
 */
 -- 미션 seed 
-INSERT INTO MISSION(region, mission_type, title, description, target_count, reward_point) VALUES
+INSERT INTO mission(region, mission_type, title, description, target_count, reward_point) VALUES
 -- 입문
 ('구역없음', 'RECEIPT',    '첫 영수증 인증', '영수증 인증 1회 시도하기', 1, 100),
 ('구역없음', 'REVIEW',     '첫 리뷰 작성', '리뷰 1회 달기', 1, 50),
