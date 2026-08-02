@@ -2,6 +2,7 @@ package com.bbangpatrol.user.service;
 
 import com.bbangpatrol.bakery.entity.Bakery;
 import com.bbangpatrol.common.exception.ApiException;
+import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.item.entity.UserItem;
 import com.bbangpatrol.item.repository.ItemRepository;
@@ -12,8 +13,11 @@ import com.bbangpatrol.point.entity.PointType;
 import com.bbangpatrol.point.repository.PointHistoryRepository;
 import com.bbangpatrol.review.repository.ReviewLikeRepository;
 import com.bbangpatrol.review.repository.ReviewRepository;
+import com.bbangpatrol.user.dto.UserRequestDTO;
 import com.bbangpatrol.user.dto.UserResponseDTO;
 import com.bbangpatrol.user.entity.User;
+import com.bbangpatrol.user.entity.UserImage;
+import com.bbangpatrol.user.repository.UserImageRepository;
 import com.bbangpatrol.user.repository.UserRepository;
 import com.bbangpatrol.visit.entity.Visit;
 import com.bbangpatrol.visit.repository.VisitRepository;
@@ -21,7 +25,9 @@ import com.bbangpatrol.mission.repository.MissionProgressRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -37,6 +43,10 @@ public class UserService {
     private final UserItemRepository userItemRepository;
     private final VisitRepository visitRepository;
     private final MissionProgressRepository missionProgressRepository;
+    private final R2Service r2Service;
+    private final UserImageRepository userImageRepository;
+
+    private static final List<String> ALLOWED_PROFILE_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/webp");
 
     @Transactional
     public void addPoint(Long userId, Integer point, PointType type, String content) {
@@ -55,7 +65,7 @@ public class UserService {
 
     @Transactional
     public UserResponseDTO.MyPageDTO getMyPage(Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+        User user = getUser(userId);
 
         Long total = itemRepository.count();
         Long collected = userItemRepository.countByUser(user);
@@ -76,7 +86,7 @@ public class UserService {
                         .items(userItemList.stream().map(ui -> UserResponseDTO.CollectionItem.builder()
                                 .id(ui.getItem().getId())
                                 .name(ui.getItem().getName())
-                                .url(ui.getItem().getImageUrl()).build()).toList()).build())
+                                .url(r2Service.getPublicUrl(ui.getItem().getImageUrl())).build()).toList()).build())
                 .map(visitList.stream().map(visit -> {
                     Bakery bakery = visit.getBakery();
 
@@ -95,5 +105,33 @@ public class UserService {
                         .targetCount(progress.getMission().getTargetCount())
                         .build()).toList())
                 .build();
+    }
+
+    @Transactional
+    public void editNickname(Long userId, UserRequestDTO.EditNicknameDTO request) {
+        User user = getUser(userId);
+        if (userRepository.existsByName(request.getNickname())) throw new ApiException(ErrorCode.NICKNAME_ALREADY_EXISTS);
+
+        user.updateNickname(request.getNickname());
+    }
+
+    public UserResponseDTO.ProfileImageDTO getMyProfileImage(Long userId) {
+        User user = getUser(userId);
+        return UserResponseDTO.ProfileImageDTO.builder()
+                .imageUrl(r2Service.getPublicUrl(user.getUserImage().getImageUrl())).build();
+    }
+
+    @Transactional
+    public void postProfileImage(Long userId, MultipartFile request) throws IOException {
+        User user = getUser(userId);
+        if(request == null || request.isEmpty()) throw new ApiException(ErrorCode.BAD_REQUEST);
+        if(!ALLOWED_PROFILE_IMAGE_TYPES.contains(request.getContentType())) throw new ApiException(ErrorCode.UNSUPPORTED_MEDIA_TYPE415);
+
+        String key = r2Service.getPublicUrl(r2Service.uploadFile(request, String.valueOf(user.getId())));
+        UserImage ui = userImageRepository.findByUser(user);
+    }
+
+    private User getUser(Long userId) {
+        return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
     }
 }

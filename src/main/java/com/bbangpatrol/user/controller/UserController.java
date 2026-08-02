@@ -1,13 +1,17 @@
 package com.bbangpatrol.user.controller;
 
 import com.bbangpatrol.common.util.ApiResponse;
+import com.bbangpatrol.user.dto.UserRequestDTO;
 import com.bbangpatrol.user.dto.UserResponseDTO;
 import com.bbangpatrol.user.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 @RestController
 @RequiredArgsConstructor
@@ -18,5 +22,22 @@ public class UserController {
     @GetMapping()
     public ApiResponse<UserResponseDTO.MyPageDTO> getMyPage(@AuthenticationPrincipal Long userId) {
         return ApiResponse.onSuccess(userService.getMyPage(userId));
+    }
+
+    @PatchMapping("/edit")
+    public ResponseEntity<ApiResponse> editNickname(@AuthenticationPrincipal Long userId, @RequestBody @Valid UserRequestDTO.EditNicknameDTO request) {
+        userService.editNickname(userId, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/profile-image")
+    public ApiResponse<UserResponseDTO.ProfileImageDTO> getMyProfileImage(@AuthenticationPrincipal Long userId) {
+        return ApiResponse.onSuccess(userService.getMyProfileImage(userId));
+    }
+
+    @PostMapping("/profile-image")
+    public ResponseEntity<ApiResponse> postProfileImage(@AuthenticationPrincipal Long userId, @RequestPart("profileImage") MultipartFile profileImage) throws IOException {
+        userService.postProfileImage(userId, profileImage);
+        return ResponseEntity.noContent().build();
     }
 }

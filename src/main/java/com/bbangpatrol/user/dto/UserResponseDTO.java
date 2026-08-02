@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -70,5 +71,13 @@ public class UserResponseDTO {
         String title;
         Integer count;
         Integer targetCount;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProfileImageDTO {
+        String imageUrl;
     }
 }

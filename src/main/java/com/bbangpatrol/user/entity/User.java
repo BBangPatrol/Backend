@@ -99,4 +99,6 @@ public class User {
     public void addPoint(int point) {
         this.pointBalance += point;
     }
+
+    public void updateNickname(String nickname) { this.name = nickname; }
 }
