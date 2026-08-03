@@ -28,4 +28,14 @@ public interface MissionProgressRepository extends JpaRepository<MissionProgress
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<MissionProgress> findByUser_IdAndMission_Id(Long userId, Long missionId);
+
+    @Query("SELECT mp FROM MissionProgress mp JOIN FETCH mp.mission " +
+            "WHERE mp.user = :user " +
+            "ORDER BY CASE " +
+            "WHEN mp.status = com.bbangpatrol.mission.entity.MissionStatus.not_received THEN 0 " +
+            "WHEN mp.status = com.bbangpatrol.mission.entity.MissionStatus.in_progress THEN 1 " +
+            "WHEN mp.status = com.bbangpatrol.mission.entity.MissionStatus.completed THEN 2 " +
+            "WHEN mp.status = com.bbangpatrol.mission.entity.MissionStatus.failed THEN 3 " +
+            "ELSE 4 END, mp.updatedAt DESC, mp.id DESC")
+    List<MissionProgress> findByUserOrderByStatusAndUpdatedAt(User user);
 }
