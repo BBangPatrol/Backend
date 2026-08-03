@@ -1,0 +1,14 @@
+services:
+  mysql:
+    image: mysql:8
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: 0921
+      MYSQL_DATABASE: bbangpatrol
+      MYSQL_USER: bbangpatrol
+      MYSQL_PASSWORD: 0921
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
