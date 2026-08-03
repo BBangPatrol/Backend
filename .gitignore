@@ -50,4 +50,5 @@ Thumbs.db
 
 # Local file
 application-local.properties
+docker-compose.local.yml
 .idea

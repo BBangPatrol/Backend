@@ -34,6 +34,10 @@ public class ApiResponse<T> {
         return new ApiResponse<>(true, String.valueOf(HttpStatus.OK.value()), HttpStatus.OK.getReasonPhrase(), data, null);
     }
 
+    public static ApiResponse onSuccess() {
+        return new ApiResponse(true, String.valueOf(HttpStatus.NO_CONTENT.value()), HttpStatus.NO_CONTENT.getReasonPhrase(), null, null);
+    }
+
     //응답 메시지를 직접 지정하는 성공 응답 생성 메서드
     public static <T> ApiResponse<T> onSuccess(String message, T data) {
         return new ApiResponse<>(true, String.valueOf(HttpStatus.OK.value()), message, data, null);
