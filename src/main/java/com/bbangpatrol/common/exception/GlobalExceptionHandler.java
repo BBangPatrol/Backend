@@ -25,7 +25,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IOException.class)
-    public ApiResponse handleIOExcpetion(IOException exception) {
+    public ApiResponse handleIOException(IOException exception) {
         return ApiResponse.onFailure("IOEXCEPTION", exception.getMessage());
     }
 }
