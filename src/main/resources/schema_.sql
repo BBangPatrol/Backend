@@ -9,6 +9,8 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+use bbangpatrol;
+
 DROP TABLE IF EXISTS visit_detail;
 DROP TABLE IF EXISTS visits;
 DROP TABLE IF EXISTS point_history;
@@ -42,7 +44,7 @@ CREATE TABLE user (
                       point_balance   INT          NOT NULL,
                       role            VARCHAR(10)  NULL,
                       refresh_token   VARCHAR(255) NULL,
-                      created_at      DATETIME     NOT NULL,
+                      created_at      DATETIME     NOT NULL	default current_timestamp,
                       deleted_at      DATETIME     NULL,
                       PRIMARY KEY (id),
                       UNIQUE KEY uk_user_name (name)
@@ -62,10 +64,11 @@ CREATE TABLE bakery (
                         hours           VARCHAR(100)  NULL,
                         avg_rating      DECIMAL(2,1)  NULL,
                         signature_menu  VARCHAR(255)  NULL,
-                        created_at      DATETIME      NOT NULL,
+                        created_at      DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         updated_at      DATETIME      NULL,
                         deleted_at      DATETIME      NULL,
                         summary         VARCHAR(255)  NULL,
+                        content         TEXT          NULL,
                         PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -78,7 +81,7 @@ CREATE TABLE item (
                       is_visible  TINYINT(1)   NOT NULL,
                       origin      TINYTEXT     NULL,
                       image_url   TEXT         NULL,
-                      created_at  DATETIME     NOT NULL,
+                      created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
                       PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -99,11 +102,12 @@ CREATE TABLE mission (
                          reward_point  INT          NULL,
                          title         VARCHAR(100) NOT NULL,
                          description   TINYTEXT     NULL,
+                         mission_type	ENUM('receipt', 'review', 'bakery', 'collection'),
                          region        VARCHAR(255) NOT NULL,
                          target_count  INT          NOT NULL,
                          start_date    DATE         NULL,
                          end_date      DATE         NULL,
-                         created_at    DATETIME     NOT NULL,
+                         created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
                          PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -115,7 +119,7 @@ CREATE TABLE review (
                         rating      DECIMAL(2,1) NOT NULL,
                         content     TINYTEXT     NULL,
                         like_count  INT          NOT NULL,
-                        created_at  DATETIME     NOT NULL,
+                        created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         deleted_at  DATETIME     NULL,
                         user_id     BIGINT       NOT NULL,
                         bakery_id   BIGINT       NOT NULL,
@@ -158,7 +162,7 @@ CREATE TABLE review_keyword (
 -- =============================================================
 CREATE TABLE review_like (
                              id          BIGINT   NOT NULL AUTO_INCREMENT,
-                             created_at  DATETIME NOT NULL,
+                             created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                              user_id     BIGINT   NOT NULL,
                              review_id   BIGINT   NOT NULL,
                              PRIMARY KEY (id),
@@ -212,7 +216,7 @@ CREATE TABLE user_image (
 -- =============================================================
 CREATE TABLE bookmark (
                           id          BIGINT   NOT NULL AUTO_INCREMENT,
-                          created_at  DATETIME NULL,
+                          created_at  DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
                           user_id     BIGINT   NOT NULL,
                           bakery_id   BIGINT   NOT NULL,
                           PRIMARY KEY (id),
@@ -245,7 +249,7 @@ CREATE TABLE mission_progress (
                                   count         INT          NOT NULL,
                                   status        VARCHAR(255) NOT NULL,
                                   completed_at  DATETIME     NULL,
-                                  created_at    DATETIME     NOT NULL,
+                                  created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                   updated_at    DATETIME     NULL,
                                   user_id       BIGINT       NOT NULL,
                                   mission_id    BIGINT       NOT NULL,
@@ -264,7 +268,7 @@ CREATE TABLE point_history (
                                type        VARCHAR(255) NULL,
                                content     VARCHAR(255) NULL,
                                amount      INT          NOT NULL,
-                               created_at  DATETIME     NOT NULL,
+                               created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                user_id     BIGINT       NOT NULL,
                                PRIMARY KEY (id),
                                KEY idx_point_history_user (user_id),
@@ -294,7 +298,7 @@ CREATE TABLE visit_detail (
                               total_amount  INT         NULL,
                               visited_at    DATE        NULL,
                               image_hash    VARCHAR(64) NULL,
-                              created_at    DATETIME    NOT NULL,
+                              created_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
                               visit_id      BIGINT      NOT NULL,
                               PRIMARY KEY (id),
                               KEY idx_visit_detail_visit (visit_id),

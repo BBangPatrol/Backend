@@ -21,7 +21,7 @@ public class UserImage {
     @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id")
     private User user;
 }

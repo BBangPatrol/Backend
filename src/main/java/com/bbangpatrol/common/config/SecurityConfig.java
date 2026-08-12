@@ -25,7 +25,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/v1/auth/login", // 로그인 주소
-                                "/api/v1/auth/reissue"// 재발급 주소
+                                "/api/v1/auth/reissue",// 재발급 주소
+                                "/api/v1/missions/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

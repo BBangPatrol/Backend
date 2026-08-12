@@ -53,6 +53,9 @@ public class User {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @OneToOne(mappedBy = "user")
+    private UserImage userImage;
+
     @Builder.Default
     @OneToMany(mappedBy = "user")
     private List<Review> reviews = new ArrayList<>();
@@ -75,10 +78,6 @@ public class User {
 
     @Builder.Default
     @OneToMany(mappedBy = "user")
-    private List<UserImage> userImages = new ArrayList<>();
-
-    @Builder.Default
-    @OneToMany(mappedBy = "user")
     private List<ReviewLike> reviewLikes = new ArrayList<>();
 
     @Builder.Default
@@ -96,4 +95,10 @@ public class User {
                 .createdAt(LocalDateTime.now())
                 .build();
     }
+
+    public void addPoint(int point) {
+        this.pointBalance += point;
+    }
+
+    public void updateNickname(String nickname) { this.name = nickname; }
 }

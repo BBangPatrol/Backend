@@ -6,6 +6,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.io.IOException;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -15,6 +17,15 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(errorCode.getStatus())
-                .body(errorCode.getErrorResponse());
+                .body(ApiResponse.onFailure(
+                        errorCode.getCode(),
+                        errorCode.getMessage(),
+                        exception.getErrors()
+                ));
+    }
+
+    @ExceptionHandler(IOException.class)
+    public ApiResponse handleIOException(IOException exception) {
+        return ApiResponse.onFailure("IOEXCEPTION", exception.getMessage());
     }
 }
