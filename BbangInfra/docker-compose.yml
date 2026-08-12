@@ -1,11 +1,11 @@
 services:
   backend:
-    build: .
+    build: ..
     container_name: backend
     restart: unless-stopped
     ports:
       - "8080:8080"
     env_file:
-      - .env
+      - ../.env
     environment:
       - SPRING_PROFILES_ACTIVE=prod
