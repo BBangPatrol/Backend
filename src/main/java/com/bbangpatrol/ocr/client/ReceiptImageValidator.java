@@ -16,9 +16,14 @@ public class ReceiptImageValidator {
     private static final Set<String> ALLOWED_TYPES = Set.of(
             "image/jpeg",
             "image/png",
+            "image/jpg",
             "image/webp",
             "image/heic",
             "image/heif"
+    );
+
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
+            ".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"
     );
 
     public void validate(MultipartFile file) {
@@ -28,10 +33,28 @@ public class ReceiptImageValidator {
         if(file.getSize() > MAX_SIZE) { // 파일이 너무 클 때
             throw new ApiException(ErrorCode.TOO_LARGE_PAYLOAD);
         }
-
-        String contentType = file.getContentType(); // 파일 형식이 안 맞을 때
-        if(contentType == null || !ALLOWED_TYPES.contains(contentType.toLowerCase(Locale.ROOT))) {
+        if (!isTypeOk(file) && !isExtensionOk(file)) { // 지원하지 않는 타입일 때
             throw new ApiException(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
         }
+    }
+
+    // 확장자 확인
+    private boolean isExtensionOk(MultipartFile file) {
+        String filename = file.getOriginalFilename();
+        if (filename == null || filename.isBlank()) {
+            return false;
+        }
+        String normalized = filename.toLowerCase(Locale.ROOT);
+        return ALLOWED_EXTENSIONS.stream().anyMatch(normalized::endsWith);
+    }
+
+    // Content-Type 확인
+    private boolean isTypeOk(MultipartFile file) {
+        String contentType = file.getContentType();
+        if (contentType == null || contentType.isBlank()) {
+            return false;
+        }
+        String normalized = contentType.split(";")[0].trim().toLowerCase(Locale.ROOT);
+        return ALLOWED_TYPES.contains(normalized);
     }
 }
