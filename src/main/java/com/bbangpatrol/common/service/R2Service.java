@@ -32,7 +32,7 @@ public class R2Service {
     private static final Set<String> ALLOWED_IMAGE_EXTENSIONS =
             Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
 
-    // 이미지 전용 업로드: 확장자 검증 후 R2에 업로드 (GPX 등은 uploadFile 사용)
+    // 이미지 전용 업로드: 확장자 검증 후 R2에 업로드
     public String uploadImage(MultipartFile file, String folder) throws IOException {
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null || !originalFilename.contains(".")) {
@@ -71,6 +71,7 @@ public class R2Service {
         return "https://" + accountId + ".r2.cloudflarestorage.com/" + bucketName + "/" + key;
     }
 
+    // Public 버킷 + CDN
     public String getPublicUrl(String key) {
         if (key == null || key.isBlank()) return null;
         return publicBaseUrl.replaceAll("/$", "") + "/" + key.replaceAll("^/", "");
