@@ -78,8 +78,6 @@ CREATE TABLE bakery (
 CREATE TABLE item (
                       id          BIGINT       NOT NULL AUTO_INCREMENT,
                       name        VARCHAR(100) NOT NULL,
-                      is_visible  TINYINT(1)   NOT NULL,
-                      origin      TINYTEXT     NULL,
                       image_url   TEXT         NULL,
                       created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
                       PRIMARY KEY (id)
