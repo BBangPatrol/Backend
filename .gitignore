@@ -52,3 +52,4 @@ Thumbs.db
 application-local.properties
 docker-compose.local.yml
 .idea
+.claude
