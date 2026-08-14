@@ -21,11 +21,6 @@ public class Item {
     @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(name = "is_visible", nullable = false)
-    private Boolean visible;
-
-    @Lob private String origin;
-
     @Lob
     @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
