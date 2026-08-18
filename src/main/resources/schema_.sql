@@ -114,7 +114,7 @@ CREATE TABLE mission (
 -- =============================================================
 CREATE TABLE review (
                         id          BIGINT       NOT NULL AUTO_INCREMENT,
-                        rating      DECIMAL(2,1) NOT NULL,
+                        rating      tinyint      NOT NULL,
                         content     TINYTEXT     NULL,
                         like_count  INT          NOT NULL,
                         created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,

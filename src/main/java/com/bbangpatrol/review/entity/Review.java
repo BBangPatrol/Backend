@@ -21,8 +21,8 @@ public class Review {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, precision = 2, scale = 1)
-    private BigDecimal rating;
+    @Column(nullable = false)
+    private Integer rating;
 
     @Lob private String content;
 
