@@ -22,4 +22,4 @@ jobs:
             docker compose up -d --build
             sleep 15
             docker compose ps --filter "status=running" | grep -q backend
-            curl -fsS https://localhost:8080/actuator/health || (docker compose logs --tail=50 backend; exit1)
+            curl -fsS http://localhost:8080/actuator/health || (docker compose logs --tail=50 backend; exit 1)
