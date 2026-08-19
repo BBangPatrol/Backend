@@ -21,6 +21,13 @@ public enum ErrorCode implements BaseErrorCode{
     OCR_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "OCR004", "OCR 서버에 연결할 수 없습니다"),
     IMAGE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "OCR005", "이미지를 읽을 수 없습니다"),
 
+    // OCR 이후 파싱에 관한 에러들
+    RECEIPT_PARSE_FAILED(HttpStatus.BAD_REQUEST, "PARSE001", "OCR 파싱 중 문제가 발생했습니다."),
+    RECEIPT_BAKERY_NAME_MISSING(HttpStatus.BAD_REQUEST, "PARSE002", "영수증에서 상호명이 인식되지 않았습니다."),
+    RECEIPT_DATE_MISSING(HttpStatus.BAD_REQUEST, "PARSE003", "영수증에서 날짜가 인식되지 않았습니다."),
+    RECEIPT_AMOUNT_MISSING(HttpStatus.BAD_REQUEST, "PARSE004", "영수증에서 금액이 인식되지 않았습니다."),
+    RECEIPT_MENU_MISSING(HttpStatus.BAD_REQUEST, "PARSE005", "영수증에서 메뉴가 인식되지 않았습니다."),
+
     // Mission에 관한 에러
     MISSION_PROGRESS_NOT_FOUND(HttpStatus.NOT_FOUND, "MISSION404", "존재하지 않는 미션 번호입니다."),
     ALREADY_REWARDED(HttpStatus.BAD_REQUEST, "MISSION400", "이미 보상을 수령한 미션입니다."),
