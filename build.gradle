@@ -51,6 +51,9 @@ dependencies {
     implementation platform("software.amazon.awssdk:bom:2.48.0")
     implementation "software.amazon.awssdk:s3"
     implementation "software.amazon.awssdk:url-connection-client"
+
+    // 상태 로그 의존성
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
 }
 
 tasks.named('test') {
