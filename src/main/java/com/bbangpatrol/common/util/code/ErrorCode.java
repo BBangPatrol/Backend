@@ -27,6 +27,8 @@ public enum ErrorCode implements BaseErrorCode{
     RECEIPT_DATE_MISSING(HttpStatus.BAD_REQUEST, "PARSE003", "영수증에서 날짜가 인식되지 않았습니다."),
     RECEIPT_AMOUNT_MISSING(HttpStatus.BAD_REQUEST, "PARSE004", "영수증에서 금액이 인식되지 않았습니다."),
     RECEIPT_MENU_MISSING(HttpStatus.BAD_REQUEST, "PARSE005", "영수증에서 메뉴가 인식되지 않았습니다."),
+    RECEIPT_NUM_MISSING(HttpStatus.BAD_REQUEST, "PARSE006", "영수증에서 승인번호가 인식되지 않았습니다."),
+    RECEIPT_TOO_OLD(HttpStatus.BAD_REQUEST, "PARSE007", "영수증의 등록 기한이 만료되었습니다."),
 
     // Mission에 관한 에러
     MISSION_PROGRESS_NOT_FOUND(HttpStatus.NOT_FOUND, "MISSION404", "존재하지 않는 미션 번호입니다."),
