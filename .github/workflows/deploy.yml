@@ -15,7 +15,22 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
             cd ~/Backend
             git pull origin main
             docker compose down
             docker compose up -d --build
+            
+            echo "Waiting for backend to be healthy..."
+            for i in $(seq 1 20); do
+              if curl -fsS http://localhost:8080/actuator/health > /dev/null 2>&1; then
+                echo "Backend is up!"
+                exit 0
+              fi
+              echo "Not ready yet ($i/20), retrying in 3s..."
+              sleep 3
+            done
+            
+            echo "Backend failed to become healthy"
+            docker compose logs --tail=100 backend
+            exit 1

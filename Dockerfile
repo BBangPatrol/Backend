@@ -1,7 +1,7 @@
 # 1단계: 빌드
 FROM gradle:8-jdk17 AS build
 WORKDIR /app
-COPY .. .
+COPY . .
 RUN gradle bootJar --no-daemon
 
 # 2단계: 실행 (가벼운 이미지로 실제 구동)
