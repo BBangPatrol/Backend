@@ -1,6 +1,7 @@
 package com.bbangpatrol.user.service;
 
 import com.bbangpatrol.bakery.entity.Bakery;
+import com.bbangpatrol.common.dto.PageInfo;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.util.code.ErrorCode;
@@ -8,21 +9,21 @@ import com.bbangpatrol.item.entity.UserItem;
 import com.bbangpatrol.item.repository.ItemRepository;
 import com.bbangpatrol.item.repository.UserItemRepository;
 import com.bbangpatrol.mission.entity.MissionProgress;
-import com.bbangpatrol.point.entity.PointHistory;
+import com.bbangpatrol.point.entity.Point;
 import com.bbangpatrol.point.entity.PointType;
-import com.bbangpatrol.point.repository.PointHistoryRepository;
+import com.bbangpatrol.point.repository.PointRepository;
+import com.bbangpatrol.review.entity.Review;
 import com.bbangpatrol.review.repository.ReviewLikeRepository;
 import com.bbangpatrol.review.repository.ReviewRepository;
 import com.bbangpatrol.user.dto.UserRequestDTO;
 import com.bbangpatrol.user.dto.UserResponseDTO;
 import com.bbangpatrol.user.entity.User;
-import com.bbangpatrol.user.entity.UserImage;
-import com.bbangpatrol.user.repository.UserImageRepository;
 import com.bbangpatrol.user.repository.UserRepository;
 import com.bbangpatrol.visit.entity.Visit;
 import com.bbangpatrol.visit.repository.VisitRepository;
 import com.bbangpatrol.mission.repository.MissionProgressRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,13 +31,14 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
-    private final PointHistoryRepository pointHistoryRepository;
+    private final PointRepository pointRepository;
     private final ReviewRepository reviewRepository;
     private final ReviewLikeRepository reviewLikeRepository;
     private final ItemRepository itemRepository;
@@ -44,9 +46,10 @@ public class UserService {
     private final VisitRepository visitRepository;
     private final MissionProgressRepository missionProgressRepository;
     private final R2Service r2Service;
-    private final UserImageRepository userImageRepository;
 
     private static final List<String> ALLOWED_PROFILE_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/webp");
+    private static final int POINT_HISTORY_PAGE_SIZE = 20;
+    private static final int REVIEW_HISTORY_PAGE_SIZE = 20;
 
     @Transactional
     public void addPoint(Long userId, Integer point, PointType type, String content) {
@@ -54,7 +57,7 @@ public class UserService {
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         user.addPoint(point);
-        pointHistoryRepository.save(PointHistory.builder()
+        pointRepository.save(Point.builder()
                 .user(user)
                 .type(type)
                 .amount(point)
@@ -118,7 +121,7 @@ public class UserService {
     public UserResponseDTO.ProfileImageDTO getMyProfileImage(Long userId) {
         User user = getUser(userId);
         return UserResponseDTO.ProfileImageDTO.builder()
-                .imageUrl(r2Service.getPublicUrl(user.getUserImage().getImageUrl())).build();
+                .imageUrl(r2Service.getPublicUrl(user.getUserImage())).build();
     }
 
     @Transactional
@@ -128,7 +131,81 @@ public class UserService {
         if(!ALLOWED_PROFILE_IMAGE_TYPES.contains(request.getContentType())) throw new ApiException(ErrorCode.UNSUPPORTED_MEDIA_TYPE415);
 
         String key = r2Service.getPublicUrl(r2Service.uploadFile(request, String.valueOf(user.getId())));
-        UserImage ui = userImageRepository.findByUser(user);
+        user.updateImage(key);
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponseDTO.PointHistoryDTO getPointHistory(Long userId, Long cursor) {
+        getUser(userId);
+
+        List<Point> points = pointRepository.findPointHistory(userId, cursor, PageRequest.of(0, POINT_HISTORY_PAGE_SIZE + 1));
+
+        boolean hasNext = points.size() > POINT_HISTORY_PAGE_SIZE;
+        List<Point> page = hasNext ? points.subList(0, POINT_HISTORY_PAGE_SIZE) : points;
+
+        List<UserResponseDTO.PointDTO> pointHistory = page.stream()
+                .map(point -> UserResponseDTO.PointDTO.builder()
+                        .type(point.getType().name())
+                        .content(point.getContent())
+                        .amount(point.getAmount())
+                        .date(point.getCreatedAt())
+                        .build())
+                .toList();
+
+        Long nextCursor = hasNext ? page.get(page.size() - 1).getId() : null;
+
+        return UserResponseDTO.PointHistoryDTO.builder()
+                .point_history(pointHistory)
+                .pageInfo(new PageInfo(pointHistory.size(), hasNext, nextCursor))
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponseDTO.ReviewHistoryDTO getMyReviews(Long userId, Long cursor) {
+        User user = getUser(userId);
+
+        List<Review> reviews = reviewRepository.findMyReviews(userId, cursor, PageRequest.of(0, REVIEW_HISTORY_PAGE_SIZE + 1));
+
+        boolean hasNext = reviews.size() > REVIEW_HISTORY_PAGE_SIZE;
+        List<Review> page = hasNext ? reviews.subList(0, REVIEW_HISTORY_PAGE_SIZE) : reviews;
+
+        List<UserResponseDTO.ReviewDTO> reviewHistory = page.stream()
+                .map(review -> UserResponseDTO.ReviewDTO.builder()
+                        .bakeryId(review.getBakery().getId())
+                        .bakeryName(review.getBakery().getName())
+                        .rating(review.getRating())
+                        .content(review.getContent())
+                        .likeCount(review.getLikeCount())
+                        .date(review.getCreatedAt())
+                        .build())
+                .toList();
+
+        Long nextCursor = hasNext ? page.get(page.size() - 1).getId() : null;
+
+        return UserResponseDTO.ReviewHistoryDTO.builder()
+                .reviews(reviewHistory)
+                .reviewCount(reviewRepository.countByUserAndDeletedAtIsNull(user))
+                .reviewLikes(reviewRepository.sumLikeCountByUser(user))
+                .pageInfo(new PageInfo(reviewHistory.size(), hasNext, nextCursor))
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponseDTO.VisitedBakeryListDTO getBakeryList(Long userId) {
+        User user = getUser(userId);
+
+        List<UserResponseDTO.Coordinate> visits = visitRepository.findByUser(user).stream()
+                .map(Visit::getBakery)
+                .filter(Objects::nonNull)
+                .map(bakery -> UserResponseDTO.Coordinate.builder()
+                        .lat(bakery.getLat())
+                        .lon(bakery.getLng())
+                        .build())
+                .toList();
+
+        return UserResponseDTO.VisitedBakeryListDTO.builder()
+                .visits(visits)
+                .build();
     }
 
     private User getUser(Long userId) {

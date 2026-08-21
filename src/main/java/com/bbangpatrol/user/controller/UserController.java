@@ -40,4 +40,20 @@ public class UserController {
         userService.postProfileImage(userId, profileImage);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/points")
+    public ApiResponse<UserResponseDTO.PointHistoryDTO> getPointsHistory(@AuthenticationPrincipal Long userId, @RequestParam(required = false, defaultValue = "") Long cursor) {
+        UserResponseDTO.PointHistoryDTO data = userService.getPointHistory(userId, cursor);
+        return ApiResponse.onSuccess(data);
+    }
+
+    @GetMapping("/reviews")
+    public ApiResponse<UserResponseDTO.ReviewHistoryDTO> getMyReviews(@AuthenticationPrincipal Long userId, @RequestParam(required = false, defaultValue = "") Long cursor) {
+        return ApiResponse.onSuccess(userService.getMyReviews(userId, cursor));
+    }
+
+    @GetMapping("/bread-collections")
+    public ApiResponse<UserResponseDTO.VisitedBakeryListDTO> getBakeryList(@AuthenticationPrincipal Long userId) {
+        return ApiResponse.onSuccess(userService.getBakeryList(userId));
+    }
 }
