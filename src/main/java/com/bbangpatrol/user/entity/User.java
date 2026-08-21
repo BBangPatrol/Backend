@@ -53,8 +53,8 @@ public class User {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    @OneToOne(mappedBy = "user")
-    private UserImage userImage;
+    @Column(name = "user_image")
+    private String userImage;
 
     @Builder.Default
     @OneToMany(mappedBy = "user")
@@ -101,4 +101,6 @@ public class User {
     }
 
     public void updateNickname(String nickname) { this.name = nickname; }
+
+    public void updateImage(String key) { this.userImage = key; }
 }

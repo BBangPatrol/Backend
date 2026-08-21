@@ -16,8 +16,6 @@ import com.bbangpatrol.review.repository.ReviewRepository;
 import com.bbangpatrol.user.dto.UserRequestDTO;
 import com.bbangpatrol.user.dto.UserResponseDTO;
 import com.bbangpatrol.user.entity.User;
-import com.bbangpatrol.user.entity.UserImage;
-import com.bbangpatrol.user.repository.UserImageRepository;
 import com.bbangpatrol.user.repository.UserRepository;
 import com.bbangpatrol.visit.entity.Visit;
 import com.bbangpatrol.visit.repository.VisitRepository;
@@ -44,7 +42,6 @@ public class UserService {
     private final VisitRepository visitRepository;
     private final MissionProgressRepository missionProgressRepository;
     private final R2Service r2Service;
-    private final UserImageRepository userImageRepository;
 
     private static final List<String> ALLOWED_PROFILE_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/webp");
 
@@ -118,7 +115,7 @@ public class UserService {
     public UserResponseDTO.ProfileImageDTO getMyProfileImage(Long userId) {
         User user = getUser(userId);
         return UserResponseDTO.ProfileImageDTO.builder()
-                .imageUrl(r2Service.getPublicUrl(user.getUserImage().getImageUrl())).build();
+                .imageUrl(r2Service.getPublicUrl(user.getUserImage())).build();
     }
 
     @Transactional
@@ -128,7 +125,7 @@ public class UserService {
         if(!ALLOWED_PROFILE_IMAGE_TYPES.contains(request.getContentType())) throw new ApiException(ErrorCode.UNSUPPORTED_MEDIA_TYPE415);
 
         String key = r2Service.getPublicUrl(r2Service.uploadFile(request, String.valueOf(user.getId())));
-        UserImage ui = userImageRepository.findByUser(user);
+        user.updateImage(key);
     }
 
     private User getUser(Long userId) {
