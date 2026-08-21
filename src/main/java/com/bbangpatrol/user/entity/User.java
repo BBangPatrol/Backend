@@ -3,7 +3,7 @@ package com.bbangpatrol.user.entity;
 import com.bbangpatrol.bookmark.entity.Bookmark;
 import com.bbangpatrol.item.entity.UserItem;
 import com.bbangpatrol.mission.entity.MissionProgress;
-import com.bbangpatrol.point.entity.PointHistory;
+import com.bbangpatrol.point.entity.Point;
 import com.bbangpatrol.review.entity.Review;
 import com.bbangpatrol.review.entity.ReviewLike;
 import com.bbangpatrol.visit.entity.Visit;
@@ -53,8 +53,8 @@ public class User {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    @OneToOne(mappedBy = "user")
-    private UserImage userImage;
+    @Column(name = "user_image")
+    private String userImage;
 
     @Builder.Default
     @OneToMany(mappedBy = "user")
@@ -74,7 +74,7 @@ public class User {
 
     @Builder.Default
     @OneToMany(mappedBy = "user")
-    private List<PointHistory> pointHistories = new ArrayList<>();
+    private List<Point> pointHistories = new ArrayList<>();
 
     @Builder.Default
     @OneToMany(mappedBy = "user")
@@ -101,4 +101,6 @@ public class User {
     }
 
     public void updateNickname(String nickname) { this.name = nickname; }
+
+    public void updateImage(String key) { this.userImage = key; }
 }
