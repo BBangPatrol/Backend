@@ -1,12 +1,12 @@
 package com.bbangpatrol.user.dto;
 
+import com.bbangpatrol.common.dto.PageInfo;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class UserResponseDTO {
@@ -79,5 +79,25 @@ public class UserResponseDTO {
     @AllArgsConstructor
     public static class ProfileImageDTO {
         String imageUrl;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PointHistoryDTO {
+        List<PointDTO> point_history;
+        PageInfo pageInfo;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PointDTO {
+        String type;
+        String content;
+        Integer amount;
+        LocalDateTime date;
     }
 }

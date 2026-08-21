@@ -40,4 +40,10 @@ public class UserController {
         userService.postProfileImage(userId, profileImage);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/points")
+    public ApiResponse<UserResponseDTO.PointHistoryDTO> getPointsHistory(@AuthenticationPrincipal Long userId, @RequestParam(required = false, defaultValue = "") Long cursor) {
+        UserResponseDTO.PointHistoryDTO data = userService.getPointHistory(userId, cursor);
+        return ApiResponse.onSuccess(data);
+    }
 }
