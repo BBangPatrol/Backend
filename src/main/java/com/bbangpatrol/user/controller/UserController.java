@@ -51,4 +51,9 @@ public class UserController {
     public ApiResponse<UserResponseDTO.ReviewHistoryDTO> getMyReviews(@AuthenticationPrincipal Long userId, @RequestParam(required = false, defaultValue = "") Long cursor) {
         return ApiResponse.onSuccess(userService.getMyReviews(userId, cursor));
     }
+
+    @GetMapping("/bread-collections")
+    public ApiResponse<UserResponseDTO.VisitedBakeryListDTO> getBakeryList(@AuthenticationPrincipal Long userId) {
+        return ApiResponse.onSuccess(userService.getBakeryList(userId));
+    }
 }

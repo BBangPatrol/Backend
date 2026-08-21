@@ -107,6 +107,8 @@ public class UserResponseDTO {
     @AllArgsConstructor
     public static class ReviewHistoryDTO {
         List<ReviewDTO> reviews;
+        Long reviewCount;
+        Long reviewLikes;
         PageInfo pageInfo;
     }
 
@@ -121,5 +123,13 @@ public class UserResponseDTO {
         String content;
         Integer likeCount;
         LocalDateTime date;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class VisitedBakeryListDTO {
+        List<Coordinate> visits;
     }
 }

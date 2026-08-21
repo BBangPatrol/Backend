@@ -31,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -161,7 +162,7 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserResponseDTO.ReviewHistoryDTO getMyReviews(Long userId, Long cursor) {
-        getUser(userId);
+        User user = getUser(userId);
 
         List<Review> reviews = reviewRepository.findMyReviews(userId, cursor, PageRequest.of(0, REVIEW_HISTORY_PAGE_SIZE + 1));
 
@@ -183,7 +184,27 @@ public class UserService {
 
         return UserResponseDTO.ReviewHistoryDTO.builder()
                 .reviews(reviewHistory)
+                .reviewCount(reviewRepository.countByUserAndDeletedAtIsNull(user))
+                .reviewLikes(reviewRepository.sumLikeCountByUser(user))
                 .pageInfo(new PageInfo(reviewHistory.size(), hasNext, nextCursor))
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponseDTO.VisitedBakeryListDTO getBakeryList(Long userId) {
+        User user = getUser(userId);
+
+        List<UserResponseDTO.Coordinate> visits = visitRepository.findByUser(user).stream()
+                .map(Visit::getBakery)
+                .filter(Objects::nonNull)
+                .map(bakery -> UserResponseDTO.Coordinate.builder()
+                        .lat(bakery.getLat())
+                        .lon(bakery.getLng())
+                        .build())
+                .toList();
+
+        return UserResponseDTO.VisitedBakeryListDTO.builder()
+                .visits(visits)
                 .build();
     }
 
