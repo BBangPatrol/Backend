@@ -46,4 +46,9 @@ public class UserController {
         UserResponseDTO.PointHistoryDTO data = userService.getPointHistory(userId, cursor);
         return ApiResponse.onSuccess(data);
     }
+
+    @GetMapping("/reviews")
+    public ApiResponse<UserResponseDTO.ReviewHistoryDTO> getMyReviews(@AuthenticationPrincipal Long userId, @RequestParam(required = false, defaultValue = "") Long cursor) {
+        return ApiResponse.onSuccess(userService.getMyReviews(userId, cursor));
+    }
 }

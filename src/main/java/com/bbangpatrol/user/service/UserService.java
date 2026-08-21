@@ -12,6 +12,7 @@ import com.bbangpatrol.mission.entity.MissionProgress;
 import com.bbangpatrol.point.entity.Point;
 import com.bbangpatrol.point.entity.PointType;
 import com.bbangpatrol.point.repository.PointRepository;
+import com.bbangpatrol.review.entity.Review;
 import com.bbangpatrol.review.repository.ReviewLikeRepository;
 import com.bbangpatrol.review.repository.ReviewRepository;
 import com.bbangpatrol.user.dto.UserRequestDTO;
@@ -47,6 +48,7 @@ public class UserService {
 
     private static final List<String> ALLOWED_PROFILE_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/webp");
     private static final int POINT_HISTORY_PAGE_SIZE = 20;
+    private static final int REVIEW_HISTORY_PAGE_SIZE = 20;
 
     @Transactional
     public void addPoint(Long userId, Integer point, PointType type, String content) {
@@ -133,6 +135,8 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserResponseDTO.PointHistoryDTO getPointHistory(Long userId, Long cursor) {
+        getUser(userId);
+
         List<Point> points = pointRepository.findPointHistory(userId, cursor, PageRequest.of(0, POINT_HISTORY_PAGE_SIZE + 1));
 
         boolean hasNext = points.size() > POINT_HISTORY_PAGE_SIZE;
@@ -152,6 +156,34 @@ public class UserService {
         return UserResponseDTO.PointHistoryDTO.builder()
                 .point_history(pointHistory)
                 .pageInfo(new PageInfo(pointHistory.size(), hasNext, nextCursor))
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponseDTO.ReviewHistoryDTO getMyReviews(Long userId, Long cursor) {
+        getUser(userId);
+
+        List<Review> reviews = reviewRepository.findMyReviews(userId, cursor, PageRequest.of(0, REVIEW_HISTORY_PAGE_SIZE + 1));
+
+        boolean hasNext = reviews.size() > REVIEW_HISTORY_PAGE_SIZE;
+        List<Review> page = hasNext ? reviews.subList(0, REVIEW_HISTORY_PAGE_SIZE) : reviews;
+
+        List<UserResponseDTO.ReviewDTO> reviewHistory = page.stream()
+                .map(review -> UserResponseDTO.ReviewDTO.builder()
+                        .bakeryId(review.getBakery().getId())
+                        .bakeryName(review.getBakery().getName())
+                        .rating(review.getRating())
+                        .content(review.getContent())
+                        .likeCount(review.getLikeCount())
+                        .date(review.getCreatedAt())
+                        .build())
+                .toList();
+
+        Long nextCursor = hasNext ? page.get(page.size() - 1).getId() : null;
+
+        return UserResponseDTO.ReviewHistoryDTO.builder()
+                .reviews(reviewHistory)
+                .pageInfo(new PageInfo(reviewHistory.size(), hasNext, nextCursor))
                 .build();
     }
 

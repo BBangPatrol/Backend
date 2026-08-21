@@ -100,4 +100,26 @@ public class UserResponseDTO {
         Integer amount;
         LocalDateTime date;
     }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ReviewHistoryDTO {
+        List<ReviewDTO> reviews;
+        PageInfo pageInfo;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ReviewDTO {
+        Long bakeryId;
+        String bakeryName;
+        BigDecimal rating;
+        String content;
+        Integer likeCount;
+        LocalDateTime date;
+    }
 }
