@@ -569,6 +569,15 @@ INSERT INTO `item` (`name`, `image_url`, `created_at`) VALUES
     ('진짜 치와와 쿠키', 'items/91.png', NOW()),
     ('가짜 치와와 쿠키', 'items/92.png', NOW());
 
+// 유저 더미 데이터
+insert into users (`name`, `email`, `kakao_id`, `role`) values
+    ('황우찬', 'test1@test.com', 1, 'ADMIN'),
+    ('김현호', 'test2@test.com', 2, 'ADMIN'),
+    ('박성수', 'test3@test.com', 3, 'ADMIN'),
+    ('박승진', 'test4@test.com', 4, 'ADMIN'),
+    ('오은진', 'test5@test.com', 5, 'ADMIN'),
+    ('일반사용자', 'user1@test.com', 6, 'USER'),
+
 
 select * from bakery;
 select * from mission;
