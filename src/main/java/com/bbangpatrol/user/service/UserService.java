@@ -52,7 +52,7 @@ public class UserService {
     private static final int REVIEW_HISTORY_PAGE_SIZE = 20;
 
     @Transactional
-    public void addPoint(Long userId, Integer point, PointType type, String content) {
+    public Integer addPoint(Long userId, Integer point, PointType type, String content) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
@@ -64,6 +64,7 @@ public class UserService {
                 .content(content)
                 .createdAt(LocalDateTime.now())
                 .build());
+        return user.getPointBalance();
     }
 
     @Transactional

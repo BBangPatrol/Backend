@@ -1,7 +1,7 @@
 package com.bbangpatrol.item.dto;
 
 public record ItemResponse(
-        Long collectiblesId,
+        Long collectibleId,
         String name,
         String image
 ) {

@@ -25,7 +25,7 @@ public class ItemController {
             @RequestParam String type
     ) {
         ItemListResponse itemListResponse = itemService.getItems(userId, type);
-        return ResponseEntity.ok(ApiResponse.onSuccess(itemListResponse));
+        return ResponseEntity.ok(ApiResponse.onSuccess(HttpStatus.OK, "요청이 성공적입니다.", itemListResponse));
     }
 
     @PostMapping
@@ -36,6 +36,6 @@ public class ItemController {
         HttpStatus status = drawResult.isDuplicated() ? HttpStatus.OK : HttpStatus.CREATED;
         String message = drawResult.isDuplicated() ? "요청은 성공적이나, 중복 아이템이 뽑혀 소량의 포인트를 환불해드립니다"
                 : "뽑기에 성공했습니다.";
-        return ResponseEntity.ok(ApiResponse.onSuccess(status, message, drawResult.response()));
+        return ResponseEntity.status(status).body(ApiResponse.onSuccess(status, message, drawResult.response()));
     }
 }

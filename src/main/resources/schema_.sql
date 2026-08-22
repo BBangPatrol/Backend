@@ -40,8 +40,8 @@ CREATE TABLE user (
                       name            VARCHAR(50)  NOT NULL,
                       email           VARCHAR(255) NULL,
                       kakao_id        VARCHAR(100) NOT NULL,
-                      `rank`          INT          NOT NULL,
-                      point_balance   INT          NOT NULL,
+                      `rank`          INT          NOT NULL default 0,
+                      point_balance   INT          NOT NULL default 0,
                       role            VARCHAR(10)  NULL,
                       refresh_token   VARCHAR(255) NULL,
                       created_at      DATETIME     NOT NULL	default current_timestamp,
@@ -87,7 +87,7 @@ CREATE TABLE item (
 -- keyword
 -- =============================================================
 CREATE TABLE keyword (
-                         id     BIGINT      NOT NULL AUTO_INCREMENT,
+                         id     BIGINT   NOT NULL AUTO_INCREMENT,
                          label  VARCHAR(30) NULL,
                          PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -114,7 +114,7 @@ CREATE TABLE mission (
 -- =============================================================
 CREATE TABLE review (
                         id          BIGINT       NOT NULL AUTO_INCREMENT,
-                        rating      DECIMAL(2,1) NOT NULL,
+                        rating      tinyint      NOT NULL,
                         content     TINYTEXT     NULL,
                         like_count  INT          NOT NULL,
                         created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,

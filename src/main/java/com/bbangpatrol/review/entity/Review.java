@@ -21,8 +21,8 @@ public class Review {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, precision = 2, scale = 1)
-    private BigDecimal rating;
+    @Column(nullable = false)
+    private Integer rating;
 
     @Lob private String content;
 
@@ -54,4 +54,16 @@ public class Review {
     @Builder.Default
     @OneToMany(mappedBy = "review")
     private List<ReviewLike> reviewLikes = new ArrayList<>();
+
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public void decreaseLikeCount() {
+        this.likeCount -= 1;
+    }
+
+    public void increaseLikeCount() {
+        this.likeCount += 1;
+    }
 }

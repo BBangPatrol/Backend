@@ -19,6 +19,16 @@ public enum ErrorCode implements BaseErrorCode{
     // user에 관한 에러
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER404", "사용자가 존재하지 않습니다."),
     NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "USER409", "닉네임이 중복됩니다."),
+    USER_UNAUTHORIZE(HttpStatus.UNAUTHORIZED, "USER403" , "권한이 없습니다."),
+
+    // 빵집 에러
+    BAKERY_NOT_FOUND(HttpStatus.NOT_FOUND, "BAKERY404" , "빵집이 존재하지 않습니다." ),
+
+    // 리뷰 에러,
+    REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "REVIEW404", "리뷰가 존재하지 않습니다."),
+
+    // R2 에러,
+    R2_IO_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "R2500" , "이미지 I/O 요청이 실패했습니다." ),
 
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "COMMON400", "잘못된 요청입니다."),
     UNAUTHORIZED_401(HttpStatus.UNAUTHORIZED, "COMMON401", "인증이 필요합니다"),
