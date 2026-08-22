@@ -17,7 +17,6 @@ DROP TABLE IF EXISTS point_history;
 DROP TABLE IF EXISTS mission_progress;
 DROP TABLE IF EXISTS user_item;
 DROP TABLE IF EXISTS bookmark;
-DROP TABLE IF EXISTS user_image;
 DROP TABLE IF EXISTS sig_image;
 DROP TABLE IF EXISTS bakery_image;
 DROP TABLE IF EXISTS review_like;
@@ -46,8 +45,8 @@ CREATE TABLE user (
                       refresh_token   VARCHAR(255) NULL,
                       created_at      DATETIME     NOT NULL	default current_timestamp,
                       deleted_at      DATETIME     NULL,
-                      PRIMARY KEY (id),
-                      UNIQUE KEY uk_user_name (name)
+                      user_image      VARCHAR(255) NULL,
+                      PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================
@@ -194,19 +193,6 @@ CREATE TABLE sig_image (
                            PRIMARY KEY (id),
                            KEY idx_sig_image_bakery (bakery_id),
                            CONSTRAINT fk_sig_image_bakery FOREIGN KEY (bakery_id) REFERENCES bakery (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- =============================================================
--- user_image
--- =============================================================
-CREATE TABLE user_image (
-                            id        BIGINT   NOT NULL AUTO_INCREMENT,
-                            origin    TINYTEXT NULL,
-                            image_url TEXT     NULL,
-                            user_id   BIGINT   NOT NULL,
-                            PRIMARY KEY (id),
-                            KEY idx_user_image_user (user_id),
-                            CONSTRAINT fk_user_image_user FOREIGN KEY (user_id) REFERENCES user (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================
