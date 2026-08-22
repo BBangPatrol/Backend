@@ -2,6 +2,7 @@ package com.bbangpatrol.review.service;
 
 import com.bbangpatrol.bakery.entity.Bakery;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
+import com.bbangpatrol.common.dto.PageInfo;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.util.code.ErrorCode;
@@ -22,7 +23,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -107,7 +107,7 @@ public class ReviewService {
         return review;
     }
 
-    public ReviewListResponse getReview(long storeId, long cursor) {
+    public ReviewListResponse getReview(long storeId, Long cursor) {
         // 1개를 더 가져와서 hasNext를 판별
         List<Review> reviews = reviewRepository
                 .findAllByBakeryWithCursor(storeId, cursor, PageRequest.of(0, SIZE + 1));
@@ -118,7 +118,6 @@ public class ReviewService {
         // 리뷰 아이디만 따로 모으기 => 리뷰 이미지 조회, 리뷰 키워드 조회
         List<Long> reviewIds = content.stream().map(Review::getId).toList();
 
-        List<ReviewImage> reviewImages = reviewImageRepository.findAllByReviewIdIn(reviewIds);
         Map<Long, List<String>> imageMap = reviewImageRepository.findAllByReviewIdIn(reviewIds).stream()
                 .collect(Collectors.groupingBy(
                         img -> img.getReview().getId(),
@@ -136,7 +135,24 @@ public class ReviewService {
                                 Collectors.toList()
                         )
                 ));
-//        List<ReviewResponse> reviewResponses =
-        return new ReviewListResponse(null, null);
+
+        List<ReviewResponse> reviewResponses = content.stream().map(
+                review -> new ReviewResponse(
+                    review.getId(),
+                    review.getUser().getId(),
+                    review.getUser().getName(),
+                    review.getUser().getUserImage(),
+                    review.getRating(),
+                    review.getContent(),
+                    keywordMap.getOrDefault(review.getId(), List.of()),
+                    imageMap.getOrDefault(review.getId(), List.of()),
+                    review.getLikeCount(),
+                    review.getCreatedAt()
+                )).toList();
+
+        Long nextCursor = hasNext ? content.get(content.size() - 1).getId() : null;
+        PageInfo pageInfo = new PageInfo(content.size(), hasNext, nextCursor);
+
+        return new ReviewListResponse(reviewResponses, pageInfo);
     }
 }

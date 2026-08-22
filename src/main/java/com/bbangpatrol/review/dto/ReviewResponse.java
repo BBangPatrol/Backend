@@ -10,7 +10,7 @@ public record ReviewResponse(
         String writerImageUrl,
         int rating,
         String content,
-        List<Integer> keywords,
+        List<Long> keywords,
         List<String> images,
         int likeCount,
         LocalDateTime date

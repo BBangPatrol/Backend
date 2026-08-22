@@ -16,7 +16,11 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     @Query("SELECT COALESCE(SUM(r.likeCount), 0) FROM Review r WHERE r.user = :user AND r.deletedAt IS NULL")
     Long sumLikeCountByUser(User user);
 
-    @Query("SELECT r FROM Review r JOIN FETCH r.bakery WHERE r.user.id = :userId AND r.deletedAt IS NULL AND (:cursor IS NULL OR r.id < :cursor) ORDER BY r.id DESC")
+    @Query("SELECT r FROM Review r JOIN FETCH r.bakery " +
+            "WHERE r.user.id = :userId " +
+            "AND r.deletedAt IS NULL " +
+            "AND (:cursor IS NULL OR r.id < :cursor) " +
+            "ORDER BY r.id DESC")
     List<Review> findMyReviews(Long userId, Long cursor, Pageable pageable);
 
     List<Review> findAllByBakery(Bakery bakery);
@@ -32,6 +36,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     """)
     List<Review> findAllByBakeryWithCursor(
             @Param("bakeryId") long bakeryId,
-            @Param("cursor") long cursor,
+            @Param("cursor") Long cursor,
             Pageable pageable);
 }

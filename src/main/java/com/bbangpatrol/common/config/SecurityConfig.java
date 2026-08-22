@@ -27,6 +27,8 @@ public class SecurityConfig {
                                 "/actuator/health", // 배포 정상 동작 확인 주소
                                 "/api/v1/auth/login", // 로그인 주소
                                 "/api/v1/auth/reissue",// 재발급 주소
+
+                                "/api/v1/stores/**",
                                 "/api/v1/missions/**",
                                 "/api/v1/collectibles",
                                 "/error"

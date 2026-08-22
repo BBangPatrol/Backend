@@ -22,7 +22,7 @@ public class ReviewController {
     @GetMapping
     public ResponseEntity<ApiResponse> getReviews(
             @PathVariable long storeId,
-            @RequestParam(required = false) long cursor
+            @RequestParam(required = false) Long cursor
     ) {
         ReviewListResponse reviews = reviewService.getReview(storeId, cursor);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.onSuccess(
