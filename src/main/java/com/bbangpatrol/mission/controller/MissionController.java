@@ -2,11 +2,11 @@ package com.bbangpatrol.mission.controller;
 
 import com.bbangpatrol.common.util.ApiResponse;
 import com.bbangpatrol.mission.dto.MissionListResponse;
-import com.bbangpatrol.mission.dto.MissionResponse;
-import com.bbangpatrol.mission.entity.MissionProgress;
+import com.bbangpatrol.mission.dto.MissionRewardResponse;
 import com.bbangpatrol.mission.service.MissionProgressService;
 import com.bbangpatrol.mission.service.MissionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -26,16 +26,16 @@ public class MissionController {
             @RequestParam(required = false) Long cursor
     ) {
         MissionListResponse list = missionService.getMissions(userId, filter, cursor);
-        return ApiResponse.onSuccess(list);
+        return ApiResponse.onSuccess(HttpStatus.OK, "요청이 성공적입니다.", list);
     }
 
     @PatchMapping("/{missionId}")
-    public ApiResponse<MissionResponse> receiveReward(
+    public ApiResponse<MissionRewardResponse> receiveReward(
 //            @AuthenticationPrincipal Long userId,
             @RequestParam Long userId,
             @PathVariable Long missionId
     ) {
-        MissionProgress result = missionProgressService.receiveReward(userId, missionId);
-        return ApiResponse.onSuccess(MissionResponse.from(result.getMission(), result));
+        MissionRewardResponse result = missionProgressService.receiveReward(userId, missionId);
+        return ApiResponse.onSuccess(HttpStatus.OK, "요청이 성공적입니다.", result);
     }
 }

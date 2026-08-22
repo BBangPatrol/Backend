@@ -2,6 +2,7 @@ package com.bbangpatrol.mission.service;
 
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.util.code.ErrorCode;
+import com.bbangpatrol.mission.dto.MissionRewardResponse;
 import com.bbangpatrol.mission.entity.MissionProgress;
 import com.bbangpatrol.mission.repository.MissionProgressRepository;
 import com.bbangpatrol.point.entity.PointType;
@@ -24,16 +25,17 @@ public class MissionProgressService {
     }
 
     @Transactional
-    public MissionProgress receiveReward(Long userId, Long missionId) {
+    public MissionRewardResponse receiveReward(Long userId, Long missionId) {
         MissionProgress target = findByUserIdAndMissionId(userId, missionId);
 
         target.receiveReward();
-        userService.addPoint(
+        Integer earnPoint = target.getMission().getRewardPoint();
+        Integer totalPoint = userService.addPoint(
                 userId,
-                target.getMission().getRewardPoint(),
+                earnPoint,
                 PointType.earn,
                 target.getMission().getTitle() + " 미션 보상"
         );
-        return target;
+        return new MissionRewardResponse(earnPoint, totalPoint);
     }
 }

@@ -15,26 +15,35 @@ public record MissionResponse(
         int targetCount,
         LocalDate startDate,
         LocalDate endDate,
-        LocalDateTime completeDate,
+        LocalDateTime completedDate,
         String status,
         String missionType
 ) {
     public static MissionResponse from(Mission mission, MissionProgress progress) {
         int count = 0;
         LocalDateTime completedAt = null;
-        String status = MissionStatus.in_progress.name();
+        MissionStatus status = MissionStatus.in_progress;
 
         if (progress != null) {
             count = progress.getCount();
             completedAt = progress.getCompletedAt();
-            status = progress.getStatus().name();
+            status = progress.getStatus();
         }
 
         return new MissionResponse(
                 mission.getId(), mission.getTitle(), mission.getDescription(),
                 count, mission.getTargetCount(),
                 mission.getStartDate(), mission.getEndDate(),
-                completedAt, status, mission.getMissionType().name()
+                completedAt, toCamelCase(status), mission.getMissionType().name()
         );
+    }
+
+    private static String toCamelCase(MissionStatus status) {
+        return switch (status) {
+            case in_progress -> "inProgress";
+            case not_received -> "notReceived";
+            case completed -> "completed";
+            case failed -> "failed";
+        };
     }
 }
