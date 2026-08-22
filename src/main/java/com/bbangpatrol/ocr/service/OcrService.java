@@ -6,5 +6,5 @@ import org.springframework.web.multipart.MultipartFile;
 public interface OcrService {
 
     // 영수증에서 정보를 추출하기 위한 메서드
-    OcrResponse getInfo(Long userId, String storeId, MultipartFile receipt);
+    OcrResponse getInfo(Long userId, Long storeId, MultipartFile receipt);
 }

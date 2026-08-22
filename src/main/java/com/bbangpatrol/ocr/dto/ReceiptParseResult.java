@@ -1,10 +1,11 @@
 package com.bbangpatrol.ocr.dto;
 
-public record OcrResponse(
+public record ReceiptParseResult(
         String bakeryName,
         String date,
         Integer amount,
         String menu,
-        String verificationToken
+        String receiptNum,
+        String businessNumber
 ) {
 }

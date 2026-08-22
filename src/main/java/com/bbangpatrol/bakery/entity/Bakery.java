@@ -48,6 +48,9 @@ public class Bakery {
     @Column(name = "signature_menu", length = 255)
     private String signatureMenu;
 
+    @Column(name = "business_number", length = 30)
+    private String businessNumber;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 

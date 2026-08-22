@@ -3,6 +3,7 @@ package com.bbangpatrol.ocr.client;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.ocr.dto.OcrResponse;
+import com.bbangpatrol.ocr.dto.ReceiptParseResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +32,7 @@ public class GeminiClient {
             .baseUrl("https://generativelanguage.googleapis.com")
             .build();
 
-    public OcrResponse parseReceipt(String ocrText) {
+    public ReceiptParseResult parseReceipt(String ocrText) {
         String prompt = """
                     다음은 OCR로 추출한 영수증 내용이다.
             
@@ -42,6 +43,7 @@ public class GeminiClient {
                     - amount: 실제 최종 결제 금액
                     - menu: 실제 구매한 상품명 목록
                     - receiptNum: 카드 결제 승인번호
+                    - businessNumber: 사업자등록번호
             
                     규칙:
             
@@ -80,6 +82,15 @@ public class GeminiClient {
                     - 사업자번호, 전화번호, 영수증번호, 가맹점번호, 카드번호는 receiptNum으로 사용하지 않는다.
                     - receiptNum은 숫자가 아니라 문자열로 반환한다.
                     - 승인번호를 확실하게 찾을 수 없다면 null을 반환한다.
+                    
+                    [businessNumber]
+                    - 영수증에 표시된 사업자등록번호를 반환한다.
+                    - "사업자", "사업자번호", "사업자등록번호", "사업자등록 번호" 등의 항목과 함께 있는 값을 우선 사용한다.
+                    - 대한민국 사업자등록번호는 일반적으로 10자리이며 보통 000-00-00000 형식으로 표시된다.
+                    - OCR에서 하이픈이 누락되거나 공백으로 분리되어 있어도 같은 번호로 판단할 수 있다.
+                    - 전화번호, 카드번호, 승인번호, 가맹점번호, 영수증번호는 businessNumber로 사용하지 않는다.
+                    - 확실하게 식별할 수 없으면 null을 반환한다.
+                    - businessNumber는 문자열로 반환한다.
             
                     OCR 내용:
                     """ + ocrText;
@@ -111,6 +122,9 @@ public class GeminiClient {
                                         ),
                                         "receiptNum", Map.of(
                                                 "type", List.of("string", "null")
+                                        ),
+                                        "businessNumber", Map.of(
+                                                "type", List.of("string", "null")
                                         )
                                 ),
                                 "required", List.of(
@@ -118,7 +132,8 @@ public class GeminiClient {
                                         "date",
                                         "amount",
                                         "menu",
-                                        "receiptNum"
+                                        "receiptNum",
+                                        "businessNumber"
                                 )
                         )
                 )
@@ -156,7 +171,7 @@ public class GeminiClient {
 
             return objectMapper.readValue( // ObjectMapper를 통해 OcrResponse 형식으로 변환
                     resultText,
-                    OcrResponse.class
+                    ReceiptParseResult.class
             );
 
         } catch (ApiException e) {

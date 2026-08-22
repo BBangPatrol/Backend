@@ -27,7 +27,7 @@ public class OcrController {
     )
     ResponseEntity<ApiResponse<OcrResponse>> getReceiptInfo(
             @AuthenticationPrincipal Long userId,
-            @PathVariable String storeId,
+            @PathVariable Long storeId,
             @RequestPart("receipt") MultipartFile receipt) {
 
         OcrResponse data = ocrService.getInfo(userId, storeId, receipt);
