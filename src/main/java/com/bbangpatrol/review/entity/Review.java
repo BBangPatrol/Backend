@@ -54,4 +54,16 @@ public class Review {
     @Builder.Default
     @OneToMany(mappedBy = "review")
     private List<ReviewLike> reviewLikes = new ArrayList<>();
+
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public void decreaseLikeCount() {
+        this.likeCount -= 1;
+    }
+
+    public void increaseLikeCount() {
+        this.likeCount += 1;
+    }
 }

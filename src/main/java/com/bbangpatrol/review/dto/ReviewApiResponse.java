@@ -1,6 +1,6 @@
 package com.bbangpatrol.review.dto;
 
-public record ReviewCreatedResponse(
+public record ReviewApiResponse(
         Long reviewId
 ) {
 }

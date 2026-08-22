@@ -3,7 +3,7 @@ package com.bbangpatrol.review.dto;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
-public record ReviewRequest(
+public record ReviewCreatedRequest(
         Integer rating,
         String content,
         List<Long> keywordIds,
