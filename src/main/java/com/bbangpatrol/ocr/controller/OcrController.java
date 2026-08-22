@@ -30,12 +30,12 @@ public class OcrController {
             @PathVariable Long storeId,
             @RequestPart("receipt") MultipartFile receipt) {
 
-        OcrResponse data = ocrService.getInfo(userId, storeId, receipt);
+        OcrResponse response = ocrService.getInfo(userId, storeId, receipt);
 
         return ResponseEntity.status(HttpStatus.OK)
                 .body(ApiResponse.onSuccess(
                         HttpStatus.OK,
                         "요청이 성공적입니다.",
-                        data));
+                        response));
     }
 }
