@@ -29,6 +29,11 @@ public enum ErrorCode implements BaseErrorCode{
     RECEIPT_MENU_MISSING(HttpStatus.BAD_REQUEST, "PARSE005", "영수증에서 메뉴가 인식되지 않았습니다."),
     RECEIPT_NUM_MISSING(HttpStatus.BAD_REQUEST, "PARSE006", "영수증에서 승인번호가 인식되지 않았습니다."),
     RECEIPT_TOO_OLD(HttpStatus.BAD_REQUEST, "PARSE007", "영수증의 등록 기한이 만료되었습니다."),
+    RECEIPT_STORE_MISMATCH(HttpStatus.BAD_REQUEST, "PARSE008", "영수증과 인증 가게가 일치하지 않습니다."),
+    RECEIPT_BUSINESS_NUMBER_MISSING(HttpStatus.BAD_REQUEST, "PARSE009", "영수증에서 사업자번호가 인식되지 않았습니다."),
+
+    // 빵집 관련 에러들
+    BAKERY_NOT_FOUND(HttpStatus.NOT_FOUND, "BAKE001", "해당 ID를 가진 가게를 찾을 수 없습니다."),
 
     // Mission에 관한 에러
     MISSION_PROGRESS_NOT_FOUND(HttpStatus.NOT_FOUND, "MISSION404", "존재하지 않는 미션 번호입니다."),

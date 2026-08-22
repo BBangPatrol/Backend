@@ -570,6 +570,11 @@ INSERT INTO `item` (`name`, `image_url`, `created_at`) VALUES
     ('가짜 치와와 쿠키', 'items/92.png', NOW());
 
 
+-- 테스트를 위해 슬로우브레드 사업자 번호 추가
+UPDATE bakery
+   SET business_number = '314-22-67770'
+ WHERE name = '슬로우브레드';
+
 select * from bakery;
 select * from mission;
 select * from keyword order by id;
