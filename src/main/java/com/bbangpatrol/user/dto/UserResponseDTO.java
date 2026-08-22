@@ -119,7 +119,7 @@ public class UserResponseDTO {
     public static class ReviewDTO {
         Long bakeryId;
         String bakeryName;
-        BigDecimal rating;
+        Integer rating;
         String content;
         Integer likeCount;
         LocalDateTime date;
