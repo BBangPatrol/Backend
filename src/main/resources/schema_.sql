@@ -87,7 +87,7 @@ CREATE TABLE item (
 -- keyword
 -- =============================================================
 CREATE TABLE keyword (
-                         id     BIGINT      NOT NULL AUTO_INCREMENT,
+                         id     BIGINT   NOT NULL AUTO_INCREMENT,
                          label  VARCHAR(30) NULL,
                          PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
