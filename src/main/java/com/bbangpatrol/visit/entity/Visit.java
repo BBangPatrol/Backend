@@ -32,4 +32,21 @@ public class Visit {
     @Builder.Default
     @OneToMany(mappedBy = "visit")
     private List<VisitDetail> visitDetails = new ArrayList<>();
+
+    public void increaseCount() { // 사용자 단일 빵집 방문 횟수 증가
+        if (this.count == null) {
+            this.count = 1;
+            return;
+        }
+
+        this.count++;
+    }
+
+    public static Visit create(User user, Bakery bakery) {
+        return Visit.builder()
+                .user(user)
+                .bakery(bakery)
+                .count(0)
+                .build();
+    }
 }

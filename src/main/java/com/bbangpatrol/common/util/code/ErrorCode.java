@@ -34,6 +34,7 @@ public enum ErrorCode implements BaseErrorCode{
 
     // 빵집 관련 에러들
     BAKERY_NOT_FOUND(HttpStatus.NOT_FOUND, "BAKE001", "해당 ID를 가진 가게를 찾을 수 없습니다."),
+    RECEIPT_ALREADY_USED(HttpStatus.CONFLICT, "BAKE002", "이미 사용한 영수증입니다."),
 
     // Mission에 관한 에러
     MISSION_PROGRESS_NOT_FOUND(HttpStatus.NOT_FOUND, "MISSION404", "존재하지 않는 미션 번호입니다."),

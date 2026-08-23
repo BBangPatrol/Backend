@@ -27,9 +27,9 @@ public class VisitController {
 
         VisitResponse response = verificationService.doVerification(userId, storeId, request);
 
-        return ResponseEntity.status(HttpStatus.OK)
+        return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.onSuccess(
-                        HttpStatus.OK,
+                        HttpStatus.CREATED,
                         "요청이 성공적입니다.",
                         response
                 ));

@@ -20,7 +20,7 @@ public class VisitDetail {
     private Integer totalAmount;
 
     @Column(name = "visited_at")
-    private LocalDate visitedAt;
+    private LocalDateTime visitedAt;
 
     @Column(name = "receipt_hash", length=64)
     private String receiptHash;
