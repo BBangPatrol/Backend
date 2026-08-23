@@ -22,18 +22,18 @@ public enum ErrorCode implements BaseErrorCode{
     IMAGE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "OCR005", "이미지를 읽을 수 없습니다"),
 
     // OCR 이후 파싱에 관한 에러들
-    RECEIPT_PARSE_FAILED(HttpStatus.BAD_REQUEST, "PARSE001", "OCR 파싱 중 문제가 발생했습니다."),
-    RECEIPT_BAKERY_NAME_MISSING(HttpStatus.BAD_REQUEST, "PARSE002", "영수증에서 상호명이 인식되지 않았습니다."),
-    RECEIPT_DATE_MISSING(HttpStatus.BAD_REQUEST, "PARSE003", "영수증에서 날짜가 인식되지 않았습니다."),
-    RECEIPT_AMOUNT_MISSING(HttpStatus.BAD_REQUEST, "PARSE004", "영수증에서 금액이 인식되지 않았습니다."),
-    RECEIPT_MENU_MISSING(HttpStatus.BAD_REQUEST, "PARSE005", "영수증에서 메뉴가 인식되지 않았습니다."),
-    RECEIPT_NUM_MISSING(HttpStatus.BAD_REQUEST, "PARSE006", "영수증에서 승인번호가 인식되지 않았습니다."),
-    RECEIPT_TOO_OLD(HttpStatus.BAD_REQUEST, "PARSE007", "영수증의 등록 기한이 만료되었습니다."),
-    RECEIPT_STORE_MISMATCH(HttpStatus.BAD_REQUEST, "PARSE008", "영수증과 인증 가게가 일치하지 않습니다."),
-    RECEIPT_BUSINESS_NUMBER_MISSING(HttpStatus.BAD_REQUEST, "PARSE009", "영수증에서 사업자번호가 인식되지 않았습니다."),
+    RECEIPT_PARSE_FAILED(HttpStatus.BAD_REQUEST, "PARSE400-1", "OCR 파싱 중 문제가 발생했습니다."),
+    RECEIPT_BAKERY_NAME_MISSING(HttpStatus.BAD_REQUEST, "PARSE400-2", "영수증에서 상호명이 인식되지 않았습니다."),
+    RECEIPT_DATE_MISSING(HttpStatus.BAD_REQUEST, "PARSE400-3", "영수증에서 날짜가 인식되지 않았습니다."),
+    RECEIPT_AMOUNT_MISSING(HttpStatus.BAD_REQUEST, "PARSE400-4", "영수증에서 금액이 인식되지 않았습니다."),
+    RECEIPT_MENU_MISSING(HttpStatus.BAD_REQUEST, "PARSE400-5", "영수증에서 메뉴가 인식되지 않았습니다."),
+    RECEIPT_NUM_MISSING(HttpStatus.BAD_REQUEST, "PARSE400-6", "영수증에서 승인번호가 인식되지 않았습니다."),
+    RECEIPT_TOO_OLD(HttpStatus.BAD_REQUEST, "PARSE400-7", "영수증의 등록 기한이 만료되었습니다."),
+    RECEIPT_STORE_MISMATCH(HttpStatus.BAD_REQUEST, "PARSE400-8", "영수증과 인증 가게가 일치하지 않습니다."),
+    RECEIPT_BUSINESS_NUMBER_MISSING(HttpStatus.BAD_REQUEST, "PARSE400-9", "영수증에서 사업자번호가 인식되지 않았습니다."),
 
     // 빵집 관련 에러들
-    BAKERY_NOT_FOUND(HttpStatus.NOT_FOUND, "BAKE001", "해당 ID를 가진 가게를 찾을 수 없습니다."),
+    BAKERY_NOT_FOUND(HttpStatus.NOT_FOUND, "BAKE404", "해당 ID를 가진 가게를 찾을 수 없습니다."),
     RECEIPT_ALREADY_USED(HttpStatus.CONFLICT, "BAKE002", "이미 사용한 영수증입니다."),
 
     // Mission에 관한 에러
@@ -44,6 +44,7 @@ public enum ErrorCode implements BaseErrorCode{
     // user에 관한 에러
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER404", "사용자가 존재하지 않습니다."),
     NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "USER409", "닉네임이 중복됩니다."),
+    INSUFFICIENT_POINT(HttpStatus.BAD_REQUEST, "POINT400", "포인트가 부족합니다."),
 
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "COMMON400", "잘못된 요청입니다."),
     UNAUTHORIZED_401(HttpStatus.UNAUTHORIZED, "COMMON401", "인증이 필요합니다"),

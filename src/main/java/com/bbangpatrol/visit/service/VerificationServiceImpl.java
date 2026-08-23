@@ -5,6 +5,7 @@ import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.ocr.service.ReceiptTokenService;
+import com.bbangpatrol.point.service.PointService;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
 import com.bbangpatrol.visit.dto.VisitRequest;
@@ -27,6 +28,7 @@ public class VerificationServiceImpl implements VerificationService {
 
     private final ReceiptTokenService receiptTokenService;
     private final ReceiptHashService receiptHashService;
+    private final PointService pointService;
 
     private final BakeryRepository bakeryRepository;
     private final UserRepository userRepository;
@@ -92,6 +94,9 @@ public class VerificationServiceImpl implements VerificationService {
 
         // 총 금액으로 포인트 계산. 1000원당 100포인트라서 1000으로 나눈 후에 100 곱하기
         int point = (request.getTotalAmount() / 1000) * 100;
+
+        // 포인트 적립
+        pointService.updatePoint(userId, point, true);
 
         return new VisitResponse(
                 visit.getId(),
