@@ -1,4 +1,4 @@
-package com.bbangpatrol.receiptVerification.dto;
+package com.bbangpatrol.visit.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -9,7 +9,7 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class VerificationResponse {
+public class VisitResponse {
     private Long visitId;
     private int point;
 }

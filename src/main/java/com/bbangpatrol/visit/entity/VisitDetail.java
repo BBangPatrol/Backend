@@ -22,8 +22,8 @@ public class VisitDetail {
     @Column(name = "visited_at")
     private LocalDate visitedAt;
 
-    @Column(name = "image_hash", length=64)
-    private String imageHash;
+    @Column(name = "receipt_hash", length=64)
+    private String receiptHash;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
