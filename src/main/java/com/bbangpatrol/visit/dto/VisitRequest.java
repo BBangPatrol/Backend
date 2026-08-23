@@ -1,4 +1,4 @@
-package com.bbangpatrol.receiptVerification.dto;
+package com.bbangpatrol.visit.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class VerificationRequest {
+public class VisitRequest {
 
     private Integer totalAmount;
 
