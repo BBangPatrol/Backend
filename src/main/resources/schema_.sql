@@ -295,7 +295,7 @@ CREATE TABLE visits (
 CREATE TABLE visit_detail (
                               id            BIGINT      NOT NULL AUTO_INCREMENT,
                               total_amount  INT         NULL,
-                              visited_at    DATETIME    NULL,
+                              visited_at    DATE        NULL,
                               receipt_hash  VARCHAR(64) NULL,
                               created_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
                               visit_id      BIGINT      NOT NULL,

@@ -1,6 +1,8 @@
 package com.bbangpatrol.user.entity;
 
 import com.bbangpatrol.bookmark.entity.Bookmark;
+import com.bbangpatrol.common.exception.ApiException;
+import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.item.entity.UserItem;
 import com.bbangpatrol.mission.entity.MissionProgress;
 import com.bbangpatrol.point.entity.PointHistory;
@@ -101,4 +103,13 @@ public class User {
     }
 
     public void updateNickname(String nickname) { this.name = nickname; }
+
+    public void usePoint(int point) { // 포인트 사용했을 경우 감소 처리
+
+        if (this.pointBalance < point) { // 보유 포인트가 부족하면 에러 발생
+            throw new ApiException(ErrorCode.INSUFFICIENT_POINT);
+        }
+
+        this.pointBalance -= point;
+    }
 }

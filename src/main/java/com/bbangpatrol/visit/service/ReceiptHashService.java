@@ -15,7 +15,7 @@ public class ReceiptHashService {
     public String create(
             String businessNumber,
             String receiptNum,
-            LocalDateTime date,
+            LocalDate date,
             Integer totalAmount
     ) {
         try {

@@ -8,12 +8,15 @@ import com.bbangpatrol.ocr.client.OcrClient;
 import com.bbangpatrol.ocr.client.ReceiptImageValidator;
 import com.bbangpatrol.ocr.dto.OcrResponse;
 import com.bbangpatrol.ocr.dto.ReceiptParseResult;
+import com.bbangpatrol.visit.repository.VisitDetailRepository;
+import com.bbangpatrol.visit.service.ReceiptHashService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 
 @Service
@@ -25,7 +28,10 @@ public class OcrServiceImpl implements OcrService {
     private final OcrClient ocrClient;
     private final GeminiClient geminiClient;
     private final BakeryRepository bakeryRepository;
+
     private final ReceiptTokenService receiptTokenService;
+    private final ReceiptHashService receiptHashService;
+    private final VisitDetailRepository visitDetailRepository;
 
     // 영수증에서 정보를 추출하기 위한 메서드
     @Override
@@ -69,6 +75,21 @@ public class OcrServiceImpl implements OcrService {
             throw new ApiException(ErrorCode.RECEIPT_STORE_MISMATCH);
         }
         log.info("[OCR SERVICE] 영수증의 사업자 번호와 사용자가 선택한 가게 일치!!");
+
+
+        String receiptHash = receiptHashService.create(
+                businessNumber,
+                parsedResult.receiptNum(),
+                LocalDate.parse(parsedResult.date()),
+                parsedResult.amount()
+        );
+
+        if (visitDetailRepository.existsByReceiptHash(receiptHash)) {
+            log.info("[OCR SERVICE] 영수증 사용 가능 여부 확인 완료 - 이미 사용된 영수증...");
+            throw new ApiException(ErrorCode.RECEIPT_ALREADY_USED);
+        }
+        log.info("[OCR SERVICE] 영수증 사용 가능 여부 확인 완료 - 통과!!");
+
 
         // 여기까지 왔으면 인증도 된 거니까 영수증 승인번호 토큰으로 발급해서 전달(유효기간 10분짜리임)
         String verificationToken = receiptTokenService.issueToken(
