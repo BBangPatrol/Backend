@@ -23,6 +23,7 @@ public enum ErrorCode implements BaseErrorCode{
 
     // 빵집 에러
     BAKERY_NOT_FOUND(HttpStatus.NOT_FOUND, "BAKERY404" , "빵집이 존재하지 않습니다." ),
+    ATTRACTION_FETCH_FAILED(HttpStatus.BAD_GATEWAY, "BAKERY502", "근처 관광지 정보를 가져오지 못했습니다."),
 
     // 리뷰 에러,
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "REVIEW404", "리뷰가 존재하지 않습니다."),
