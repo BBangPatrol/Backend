@@ -25,6 +25,7 @@ public class Bakery {
 
     @Column(nullable = false, length = 100)
     private String name;
+    @Enumerated(EnumType.STRING)
     private Region region;
 
     @Column(length = 255)
@@ -59,6 +60,9 @@ public class Bakery {
 
     @Column(length = 255)
     private String summary;
+
+    @Lob
+    private String content;
 
     @Builder.Default
     @OneToMany(mappedBy = "bakery")
