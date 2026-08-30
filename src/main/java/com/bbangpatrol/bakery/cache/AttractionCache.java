@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -21,9 +23,10 @@ public class AttractionCache {
 
     private static final String PREFIX = "ATTRACTION:";
     private static final long TTL_HOURS = 24;
+    private static final int COORD_SCALE = 7;
 
-    public Optional<AttractionListResponse> find(Long storeId) {
-        String cached = redisTemplate.opsForValue().get(PREFIX + storeId);
+    public Optional<AttractionListResponse> find(Long storeId, BigDecimal lat, BigDecimal lng) {
+        String cached = redisTemplate.opsForValue().get(key(storeId, lat, lng));
         if (cached == null) {
             return Optional.empty();
         }
@@ -35,12 +38,20 @@ public class AttractionCache {
         }
     }
 
-    public void save(Long storeId, AttractionListResponse response) {
+    public void save(Long storeId, BigDecimal lat, BigDecimal lng, AttractionListResponse response) {
         try {
             String json = objectMapper.writeValueAsString(response);
-            redisTemplate.opsForValue().set(PREFIX + storeId, json, TTL_HOURS, TimeUnit.HOURS);
+            redisTemplate.opsForValue().set(key(storeId, lat, lng), json, TTL_HOURS, TimeUnit.HOURS);
         } catch (JsonProcessingException e) {
             log.warn("[AttractionCache] 캐시 직렬화 실패 storeId: {}", storeId, e);
         }
+    }
+
+    private String key(Long storeId, BigDecimal lat, BigDecimal lng) {
+        return PREFIX + storeId + ":" + coord(lat) + ":" + coord(lng);
+    }
+
+    private String coord(BigDecimal value) {
+        return value == null ? "null" : value.setScale(COORD_SCALE, RoundingMode.HALF_UP).toPlainString();
     }
 }

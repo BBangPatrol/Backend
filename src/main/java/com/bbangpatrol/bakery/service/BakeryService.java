@@ -110,7 +110,7 @@ public class BakeryService {
         Bakery bakery = bakeryRepository.findById(storeId)
                 .orElseThrow(() -> new ApiException(ErrorCode.BAKERY_NOT_FOUND));
 
-        return attractionCache.find(storeId)
+        return attractionCache.find(storeId, bakery.getLat(), bakery.getLng())
                 .orElseGet(() -> fetchAndCacheAttractions(storeId, bakery));
     }
 
@@ -145,7 +145,7 @@ public class BakeryService {
                 .toList();
 
         AttractionListResponse response = new AttractionListResponse(attractions);
-        attractionCache.save(storeId, response);
+        attractionCache.save(storeId, bakery.getLat(), bakery.getLng(), response);
         return response;
     }
 
