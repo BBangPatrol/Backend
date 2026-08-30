@@ -54,6 +54,10 @@ dependencies {
 
     // 상태 로그 의존성
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // DB 마이그레이션 (Flyway). MySQL 은 flyway-mysql 모듈이 별도로 필요함
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
 }
 
 tasks.named('test') {
