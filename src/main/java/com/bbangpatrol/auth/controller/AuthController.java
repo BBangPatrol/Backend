@@ -32,7 +32,7 @@ public class AuthController {
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", result.refreshToken())
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("Strict")
+                .sameSite("None")
                 .path("/api/v1/auth")
                 .maxAge(Duration.ofDays(7))
                 .build();
@@ -75,7 +75,7 @@ public class AuthController {
 
         // refresh 쿠키 제거
         ResponseCookie deleteCookie = ResponseCookie.from("refreshToken", "")
-                .httpOnly(true).secure(true).sameSite("Strict")
+                .httpOnly(true).secure(true).sameSite("None")
                 .path("/api/v1/auth")
                 .maxAge(0)
                 .build();
@@ -101,7 +101,7 @@ public class AuthController {
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", result.refreshToken())
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("Strict")
+                .sameSite("None")
                 .path("/api/v1/auth")
                 .maxAge(Duration.ofDays(7))
                 .build();
