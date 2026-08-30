@@ -53,4 +53,13 @@ public interface BakeryRepository extends JpaRepository<Bakery, Long> {
             @Param("cursor") Long cursor,
             Pageable pageable
     );
+
+    @Query("""
+            select b.businessNumber
+            from Bakery b
+            where b.id = :storeId
+            """)
+    Optional<String> findBusinessNumberByStoreId(
+            @Param("storeId") Long storeId
+    );
 }

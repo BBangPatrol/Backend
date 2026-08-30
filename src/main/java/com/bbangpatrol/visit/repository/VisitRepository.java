@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface VisitRepository extends JpaRepository<Visit, Long> {
     List<Visit> findByUser(User user);
@@ -25,4 +26,7 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
             where v.bakery.id = :bakeryId
             """)
     long sumVisitCountByBakeryId(@Param("bakeryId") Long bakeryId);
+
+    // 사용자 + 빵집 조회에 사용
+    Optional<Visit> findByUserIdAndBakeryId(Long userId, Long bakeryId);
 }

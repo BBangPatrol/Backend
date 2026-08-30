@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "point")
+@Table(name = "point_history")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

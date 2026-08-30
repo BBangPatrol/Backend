@@ -579,6 +579,11 @@ insert into user (`name`, `email`, `kakao_id`, `role`) values
     ('일반사용자', 'user1@test.com', 6, 'USER');
 
 
+-- 테스트를 위해 슬로우브레드 사업자 번호 추가
+UPDATE bakery
+   SET business_number = '314-22-67770'
+ WHERE name = '슬로우브레드';
+
 select * from bakery;
 select * from mission;
 select * from keyword order by id;
