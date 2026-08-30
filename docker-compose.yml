@@ -15,6 +15,9 @@ services:
 
   redis:
     image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
     container_name: redis
     restart: unless-stopped
     expose:
