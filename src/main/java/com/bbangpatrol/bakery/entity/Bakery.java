@@ -65,6 +65,7 @@ public class Bakery {
     private String summary;
 
     @Lob
+    @Column(columnDefinition = "TEXT")
     private String content;
 
     @Builder.Default
