@@ -68,6 +68,7 @@ CREATE TABLE bakery (
                         deleted_at      DATETIME      NULL,
                         summary         VARCHAR(255)  NULL,
                         content         TEXT          NULL,
+                        business_number VARCHAR(30)   NULL,
                         PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -281,7 +282,7 @@ CREATE TABLE visit_detail (
                               id            BIGINT      NOT NULL AUTO_INCREMENT,
                               total_amount  INT         NULL,
                               visited_at    DATE        NULL,
-                              image_hash    VARCHAR(64) NULL,
+                              receipt_hash  VARCHAR(64) NULL,
                               created_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
                               visit_id      BIGINT      NOT NULL,
                               PRIMARY KEY (id),
