@@ -1,35 +1,10 @@
 -- =============================================================
--- bbangpatrol 로컬 개발용 스키마
--- 2026-07-25
+-- V1: 초기 스키마
+-- schema_.sql 에서 이관 (DROP TABLE / USE 구문 제거)
 --
--- 사용법: 로컬 DB에서 실행 (기존 테이블 전부 DROP 후 재생성)
---   mysql -u <user> -p <database> < schema.sql
---
+-- Flyway 가 관리함. 적용된 뒤에는 이 파일을 수정하지 말 것
+-- (체크섬 불일치로 부팅 실패). 변경은 새 V{n} 파일로 추가.
 -- =============================================================
-
-SET FOREIGN_KEY_CHECKS = 0;
-
-use bbangpatrol;
-
-DROP TABLE IF EXISTS visit_detail;
-DROP TABLE IF EXISTS visits;
-DROP TABLE IF EXISTS point_history;
-DROP TABLE IF EXISTS mission_progress;
-DROP TABLE IF EXISTS user_item;
-DROP TABLE IF EXISTS bookmark;
-DROP TABLE IF EXISTS sig_image;
-DROP TABLE IF EXISTS bakery_image;
-DROP TABLE IF EXISTS review_like;
-DROP TABLE IF EXISTS review_keyword;
-DROP TABLE IF EXISTS review_image;
-DROP TABLE IF EXISTS review;
-DROP TABLE IF EXISTS mission;
-DROP TABLE IF EXISTS keyword;
-DROP TABLE IF EXISTS item;
-DROP TABLE IF EXISTS bakery;
-DROP TABLE IF EXISTS user;
-
-SET FOREIGN_KEY_CHECKS = 1;
 
 -- =============================================================
 -- user
@@ -62,13 +37,13 @@ CREATE TABLE bakery (
                         phone           VARCHAR(20)   NULL,
                         hours           VARCHAR(100)  NULL,
                         avg_rating      DECIMAL(2,1)  NULL,
+                        business_number VARCHAR(30)   NULL,
                         signature_menu  VARCHAR(255)  NULL,
                         created_at      DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         updated_at      DATETIME      NULL,
                         deleted_at      DATETIME      NULL,
                         summary         VARCHAR(255)  NULL,
                         content         TEXT          NULL,
-                        business_number VARCHAR(30)   NULL,
                         PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -114,7 +89,7 @@ CREATE TABLE mission (
 -- =============================================================
 CREATE TABLE review (
                         id          BIGINT       NOT NULL AUTO_INCREMENT,
-                        rating      tinyint      NOT NULL,
+                        rating      INT          NOT NULL,
                         content     TINYTEXT     NULL,
                         like_count  INT          NOT NULL,
                         created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
