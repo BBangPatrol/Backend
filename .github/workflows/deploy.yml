@@ -18,7 +18,7 @@ jobs:
             set -e
             cd ~/Backend
             git pull origin main
-            docker compose down
+            docker compose config -q
             docker compose up -d --build
             
             echo "Waiting for backend to be healthy..."
