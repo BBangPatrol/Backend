@@ -116,4 +116,20 @@ public class AuthController {
                         "토큰 재발급에 성공했습니다.",
                         data));
     }
+
+    // 내 정보 조회
+    @GetMapping("/me")
+    ResponseEntity<ApiResponse<MeResponse>> me(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            @AuthenticationPrincipal Long userId) {
+
+        MeResponse data = authService.getMe(userId);
+
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(ApiResponse.onSuccess(
+                        HttpStatus.OK,
+                        "요청이 성공적입니다.",
+                        data));
+    }
 }
