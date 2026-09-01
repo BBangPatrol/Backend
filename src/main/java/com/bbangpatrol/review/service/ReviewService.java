@@ -6,6 +6,7 @@ import com.bbangpatrol.common.dto.PageInfo;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.util.code.ErrorCode;
+import com.bbangpatrol.mission.service.MissionEvaluator;
 import com.bbangpatrol.review.dto.ReviewListResponse;
 import com.bbangpatrol.review.dto.ReviewCreatedRequest;
 import com.bbangpatrol.review.dto.ReviewResponse;
@@ -46,6 +47,7 @@ public class ReviewService {
     private final ReviewKeywordRepository reviewKeywordRepository;
     private final R2Service r2Service;
     private final ReviewImageRepository reviewImageRepository;
+    private final MissionEvaluator missionEvaluator;
 
 
     @Transactional
@@ -74,6 +76,10 @@ public class ReviewService {
         if (request.reviewImages() != null && !request.reviewImages().isEmpty()) {
             uploadAndSaveImages(review,  request.reviewImages());
         }
+
+        // 리뷰 미션 진행도 갱신
+        missionEvaluator.onReviewCreated(userId, bakery.getRegion());
+
         return review;
     }
 

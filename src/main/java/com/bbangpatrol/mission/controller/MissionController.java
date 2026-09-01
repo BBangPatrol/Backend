@@ -25,7 +25,7 @@ public class MissionController {
             @RequestParam(defaultValue = "all") String filter,
             @RequestParam(required = false) Long cursor
     ) {
-        MissionListResponse list = missionService.getMissions(userId, filter, cursor);
+        MissionListResponse list = missionService.getMissions(userId, filter);
         return ApiResponse.onSuccess(HttpStatus.OK, "요청이 성공적입니다.", list);
     }
 
