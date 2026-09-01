@@ -7,7 +7,6 @@ import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.mission.service.MissionEvaluator;
 import com.bbangpatrol.ocr.service.ReceiptTokenService;
 import com.bbangpatrol.point.service.PointService;
-import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
 import com.bbangpatrol.visit.dto.VisitRequest;
 import com.bbangpatrol.visit.dto.VisitResponse;
@@ -53,11 +52,9 @@ public class VerificationServiceImpl implements VerificationService {
                         new ApiException(ErrorCode.BAKERY_NOT_FOUND)
                 );
 
-        // 3. 사용자 조회
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new ApiException(ErrorCode.USER_NOT_FOUND)
-                );
+        // 3. 사용자 조회. 같은 유저의 동시 인증을 여기서 줄 세운다.
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         // 4. 사업자번호 + 승인번호 + 날짜 + 금액으로 영수증 해시 생성
         String receiptHash = receiptHashService.create(
@@ -72,16 +69,13 @@ public class VerificationServiceImpl implements VerificationService {
             throw new ApiException(ErrorCode.RECEIPT_ALREADY_USED);
         }
 
-        Visit visit = visitRepository
-                .findByUserIdAndBakeryId(userId, storeId)
-                .orElseGet(() -> Visit.create(user, bakery));
+        // 6. 방문 기록 확보. 처음 방문이면 이때 만들어진다
+        visitRepository.insertIfAbsent(userId, storeId);
+        Visit visit = visitRepository.findForUpdate(userId, storeId)
+                .orElseThrow(() -> new ApiException(ErrorCode.BAKERY_NOT_FOUND));
 
         // 7. 방문 횟수 +1
         visit.increaseCount();
-
-        if (visit.getId() == null) { // 만약 조회된 게 없다면 처음 방문한 것이므로 내용 저장
-            visitRepository.save(visit);
-        }
 
         // 8. 개별 방문 기록 저장
         VisitDetail visitDetail = VisitDetail.builder()
