@@ -6,11 +6,16 @@ import com.bbangpatrol.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "mission_progress")
+@Table(
+        name = "mission_progress",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_mission_progress_user_mission",
+                columnNames = {"user_id", "mission_id"}
+        )
+)
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -28,6 +33,7 @@ public class MissionProgress {
     @Column(nullable = false)
     private MissionStatus status;
 
+    // 보상 수령 시각이 아니라 목표를 채운 시각
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
@@ -45,6 +51,17 @@ public class MissionProgress {
     @JoinColumn(name = "mission_id")
     private Mission mission;
 
+    public static MissionProgress start(User user, Mission mission) {
+        return MissionProgress.builder()
+                .user(user)
+                .mission(mission)
+                .count(0)
+                .status(MissionStatus.in_progress)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+    }
+
     public void receiveReward() {
         if (this.status == MissionStatus.completed) {
             throw new ApiException(ErrorCode.ALREADY_REWARDED);
@@ -54,17 +71,26 @@ public class MissionProgress {
         }
         this.status = MissionStatus.completed;
         this.updatedAt = LocalDateTime.now();
-        this.completedAt = LocalDateTime.now();
     }
 
-    public void increaseCount() {
+    public boolean updateCount(int counted) {
         if (this.status != MissionStatus.in_progress) {
-            throw new IllegalStateException("더이상 횟수를 올릴 수 없습니다.");
+            return false;
         }
-        this.count++;
+
+        int next = Math.min(counted, mission.getTargetCount());
+        if (next <= this.count) {
+            return false;
+        }
+
+        this.count = next;
+        this.updatedAt = LocalDateTime.now();
+
         if (this.count >= mission.getTargetCount()) {
-            this.count = mission.getTargetCount();
             this.status = MissionStatus.not_received;
+            this.completedAt = LocalDateTime.now();
+            return true;
         }
+        return false;
     }
 }

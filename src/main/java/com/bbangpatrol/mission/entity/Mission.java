@@ -5,8 +5,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "mission")
@@ -32,6 +30,10 @@ public class Mission {
     @Column(name = "mission_type")
     private MissionType missionType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 40)
+    private MissionCriteria criteria;
+
     @Column(nullable = false)
     private Region region;
 
@@ -46,9 +48,4 @@ public class Mission {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
-
-    @Builder.Default
-    @OneToMany(mappedBy = "mission")
-    private List<MissionProgress> missionProgresses = new ArrayList<>();
-
 }

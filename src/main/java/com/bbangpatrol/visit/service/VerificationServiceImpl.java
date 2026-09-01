@@ -4,6 +4,7 @@ import com.bbangpatrol.bakery.entity.Bakery;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.util.code.ErrorCode;
+import com.bbangpatrol.mission.service.MissionEvaluator;
 import com.bbangpatrol.ocr.service.ReceiptTokenService;
 import com.bbangpatrol.point.service.PointService;
 import com.bbangpatrol.user.entity.User;
@@ -29,6 +30,7 @@ public class VerificationServiceImpl implements VerificationService {
     private final ReceiptTokenService receiptTokenService;
     private final ReceiptHashService receiptHashService;
     private final PointService pointService;
+    private final MissionEvaluator missionEvaluator;
 
     private final BakeryRepository bakeryRepository;
     private final UserRepository userRepository;
@@ -97,6 +99,9 @@ public class VerificationServiceImpl implements VerificationService {
 
         // 포인트 적립
         pointService.updatePoint(userId, point, true);
+
+        // 영수증 / 빵집 방문 미션 진행도 갱신
+        missionEvaluator.onReceiptVerified(userId, bakery.getRegion());
 
         return new VisitResponse(
                 visit.getId(),

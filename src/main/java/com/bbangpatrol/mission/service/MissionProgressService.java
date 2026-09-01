@@ -18,18 +18,17 @@ public class MissionProgressService {
     private final MissionProgressRepository missionProgressRepository;
     private final UserService userService;
 
-    @Transactional(readOnly = true)
-    public MissionProgress findByUserIdAndMissionId(Long userId, Long missionId) {
-        return missionProgressRepository.findByUser_IdAndMission_Id(userId, missionId)
-                .orElseThrow(() -> new ApiException(ErrorCode.MISSION_PROGRESS_NOT_FOUND));
-    }
-
     @Transactional
     public MissionRewardResponse receiveReward(Long userId, Long missionId) {
-        MissionProgress target = findByUserIdAndMissionId(userId, missionId);
+        MissionProgress target = missionProgressRepository
+                .findByUser_IdAndMission_Id(userId, missionId)
+                .orElseThrow(() -> new ApiException(ErrorCode.MISSION_PROGRESS_NOT_FOUND));
 
         target.receiveReward();
-        Integer earnPoint = target.getMission().getRewardPoint();
+
+        Integer rewardPoint = target.getMission().getRewardPoint();
+        int earnPoint = rewardPoint == null ? 0 : rewardPoint;
+
         Integer totalPoint = userService.addPoint(
                 userId,
                 earnPoint,

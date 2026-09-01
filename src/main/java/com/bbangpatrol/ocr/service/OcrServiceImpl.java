@@ -91,6 +91,7 @@ public class OcrServiceImpl implements OcrService {
         log.info("[OCR SERVICE] 영수증 사용 가능 여부 확인 완료 - 통과!!");
 
 
+
         // 여기까지 왔으면 인증도 된 거니까 영수증 승인번호 토큰으로 발급해서 전달(유효기간 10분짜리임)
         String verificationToken = receiptTokenService.issueToken(
                 userId,

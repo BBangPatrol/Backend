@@ -25,7 +25,8 @@ public class Bakery {
 
     @Column(nullable = false, length = 100)
     private String name;
-    @Enumerated(EnumType.STRING)
+
+    @Column
     private Region region;
 
     @Column(length = 255)

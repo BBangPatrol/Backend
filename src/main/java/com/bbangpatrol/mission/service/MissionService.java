@@ -8,8 +8,6 @@ import com.bbangpatrol.mission.entity.MissionProgress;
 import com.bbangpatrol.mission.entity.MissionStatus;
 import com.bbangpatrol.mission.repository.MissionRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,26 +18,22 @@ import java.util.List;
 public class MissionService {
 
     private final MissionRepository missionRepository;
-    private static final int PAGE_SIZE = 20;
 
     @Transactional(readOnly = true)
-    public MissionListResponse getMissions(Long userId, String filter, Long cursor) {
-        Pageable pageable = PageRequest.of(0, PAGE_SIZE);
-
+    public MissionListResponse getMissions(Long userId, String filter) {
         // 미션과 미션진행도 LEFT JOIN
         List<Object[]> rows = switch (filter) {
-            case "in-progress" -> missionRepository.findInProgress(userId, MissionStatus.in_progress, cursor, pageable);
-            case "completed" -> missionRepository.findByStatuses(userId, List.of(MissionStatus.completed, MissionStatus.not_received), cursor, pageable);
-            default -> missionRepository.findAllWithProgress(userId, cursor, pageable);
+            case "in-progress" -> missionRepository.findInProgress(userId, MissionStatus.in_progress);
+            case "completed" -> missionRepository.findByStatuses(userId,
+                    List.of(MissionStatus.completed, MissionStatus.not_received));
+            default -> missionRepository.findAllWithProgress(userId);
         };
 
         List<MissionResponse> missions = rows.stream()
                 .map(row -> MissionResponse.from((Mission) row[0], (MissionProgress) row[1]))
                 .toList();
 
-        int size = missions.size();
-        Long nextCursor = size == PAGE_SIZE ? missions.get(size - 1).id() : null;
-
-        return new MissionListResponse(missions, new PageInfo(size, nextCursor != null, nextCursor));
+        // 나누지 않고 다 내려준다. pageInfo 는 다른 목록 API 와 형태를 맞추기 위해 유지
+        return new MissionListResponse(missions, new PageInfo(missions.size(), false, null));
     }
 }
