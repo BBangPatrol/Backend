@@ -6,6 +6,7 @@ import com.bbangpatrol.mission.dto.MissionRewardResponse;
 import com.bbangpatrol.mission.entity.MissionProgress;
 import com.bbangpatrol.mission.repository.MissionProgressRepository;
 import com.bbangpatrol.point.entity.PointType;
+import com.bbangpatrol.user.repository.UserRepository;
 import com.bbangpatrol.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,10 +17,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class MissionProgressService {
 
     private final MissionProgressRepository missionProgressRepository;
+    private final UserRepository userRepository;
     private final UserService userService;
 
     @Transactional
     public MissionRewardResponse receiveReward(Long userId, Long missionId) {
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+
         MissionProgress target = missionProgressRepository
                 .findByUser_IdAndMission_Id(userId, missionId)
                 .orElseThrow(() -> new ApiException(ErrorCode.MISSION_PROGRESS_NOT_FOUND));

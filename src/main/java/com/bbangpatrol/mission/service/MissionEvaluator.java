@@ -1,6 +1,8 @@
 package com.bbangpatrol.mission.service;
 
 import com.bbangpatrol.common.enums.Region;
+import com.bbangpatrol.common.exception.ApiException;
+import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.mission.dto.MissionResponse;
 import com.bbangpatrol.mission.entity.Mission;
 import com.bbangpatrol.mission.entity.MissionCriteria;
@@ -9,6 +11,7 @@ import com.bbangpatrol.mission.entity.MissionStatus;
 import com.bbangpatrol.mission.entity.MissionType;
 import com.bbangpatrol.mission.repository.MissionProgressRepository;
 import com.bbangpatrol.mission.repository.MissionRepository;
+import com.bbangpatrol.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,6 +36,7 @@ public class MissionEvaluator {
     private final MissionRepository missionRepository;
     private final MissionProgressRepository missionProgressRepository;
     private final MissionCounter missionCounter;
+    private final UserRepository userRepository;
 
     @Transactional
     public List<MissionResponse> onReceiptVerified(Long userId, Region region) {
@@ -97,6 +101,9 @@ public class MissionEvaluator {
 
     private Map<Long, MissionProgress> ensureProgresses(Long userId, List<Mission> targets) {
         List<Long> missionIds = targets.stream().map(Mission::getId).toList();
+
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         missionProgressRepository.insertMissingProgress(userId, missionIds);
 

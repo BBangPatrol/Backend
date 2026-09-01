@@ -2,7 +2,10 @@ package com.bbangpatrol.visit.repository;
 
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.visit.entity.Visit;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -29,4 +32,13 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
 
     // 사용자 + 빵집 조회에 사용
     Optional<Visit> findByUserIdAndBakeryId(Long userId, Long bakeryId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = false)
+    @Query(value = "INSERT IGNORE INTO visits (user_id, bakery_id, `count`) VALUES (:userId, :bakeryId, 0)",
+            nativeQuery = true)
+    void insertIfAbsent(Long userId, Long bakeryId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT v FROM Visit v WHERE v.user.id = :userId AND v.bakery.id = :bakeryId")
+    Optional<Visit> findForUpdate(Long userId, Long bakeryId);
 }

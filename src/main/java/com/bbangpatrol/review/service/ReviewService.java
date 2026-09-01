@@ -52,7 +52,7 @@ public class ReviewService {
 
     @Transactional
     public Review createReview(long userId, long storeId, ReviewCreatedRequest request) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(()-> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         Bakery bakery = bakeryRepository.findById(storeId)
