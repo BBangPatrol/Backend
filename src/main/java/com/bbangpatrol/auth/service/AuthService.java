@@ -2,6 +2,7 @@ package com.bbangpatrol.auth.service;
 
 import com.bbangpatrol.auth.dto.LoginRequest;
 import com.bbangpatrol.auth.dto.LoginResult;
+import com.bbangpatrol.auth.dto.MeResponse;
 import com.bbangpatrol.auth.dto.ReissueResult;
 import jakarta.validation.Valid;
 
@@ -12,4 +13,6 @@ public interface AuthService {
     void logout(Long userId, String accessToken);
     // 토큰 재발급
     ReissueResult reissue(String refreshToken);
+    // 내 정보 조회
+    MeResponse getMe(Long userId);
 }
