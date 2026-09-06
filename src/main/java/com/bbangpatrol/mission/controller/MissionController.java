@@ -7,6 +7,7 @@ import com.bbangpatrol.mission.service.MissionProgressService;
 import com.bbangpatrol.mission.service.MissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -20,19 +21,18 @@ public class MissionController {
     // 로그인 시에만 호출 가능
     @GetMapping
     public ApiResponse<MissionListResponse> getMissions(
-//            @AuthenticationPrincipal Long userId,
-            @RequestParam Long userId,
+            @AuthenticationPrincipal Long userId,
             @RequestParam(defaultValue = "all") String filter,
-            @RequestParam(required = false) Long cursor
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(required = false) Integer size
     ) {
-        MissionListResponse list = missionService.getMissions(userId, filter);
+        MissionListResponse list = missionService.getMissions(userId, filter, cursor, size);
         return ApiResponse.onSuccess(HttpStatus.OK, "요청이 성공적입니다.", list);
     }
 
     @PatchMapping("/{missionId}")
     public ApiResponse<MissionRewardResponse> receiveReward(
-//            @AuthenticationPrincipal Long userId,
-            @RequestParam Long userId,
+            @AuthenticationPrincipal Long userId,
             @PathVariable Long missionId
     ) {
         MissionRewardResponse result = missionProgressService.receiveReward(userId, missionId);

@@ -11,6 +11,7 @@ import com.bbangpatrol.review.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RequestMapping("/api/v1/stores/{storeId}/reviews")
@@ -32,8 +33,7 @@ public class ReviewController {
 
     @PostMapping
     public ResponseEntity<ApiResponse> createReview(
-//            @AuthenticationPrincipal Long userId,
-            @RequestParam long userId,
+            @AuthenticationPrincipal Long userId,
             @PathVariable long storeId,
             @ModelAttribute ReviewCreatedRequest request
     ) {
@@ -44,8 +44,7 @@ public class ReviewController {
 
     @PatchMapping("/{reviewId}")
     public ResponseEntity<ApiResponse> updateReview(
-            //            @AuthenticationPrincipal Long userId,
-            @RequestParam long userId,
+            @AuthenticationPrincipal Long userId,
             @PathVariable long reviewId,
             @ModelAttribute ReviewUpdatedRequest request
     ) {
@@ -56,8 +55,7 @@ public class ReviewController {
 
     @DeleteMapping("/{reviewId}")
     public ResponseEntity<ApiResponse> deleteReview(
-            //            @AuthenticationPrincipal Long userId,
-            @RequestParam long userId,
+            @AuthenticationPrincipal Long userId,
             @PathVariable long reviewId
     ) {
         reviewService.deleteReview(userId, reviewId);
@@ -67,8 +65,7 @@ public class ReviewController {
 
     @PostMapping("/{reviewId}/like")
     public ResponseEntity<ApiResponse> toggleReviewLikes(
-            //            @AuthenticationPrincipal Long userId,
-            @RequestParam long userId,
+            @AuthenticationPrincipal Long userId,
             @PathVariable long reviewId
     ) {
         boolean liked = reviewService.toggleReviewLike(userId, reviewId);

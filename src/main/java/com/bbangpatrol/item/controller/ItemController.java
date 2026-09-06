@@ -19,8 +19,7 @@ public class ItemController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<ItemListResponse>> getItems(
-//            @AuthenticationPrincipal Long userId,
-            @RequestParam Long userId,
+            @AuthenticationPrincipal Long userId,
             @RequestParam String type
     ) {
         ItemListResponse itemListResponse = itemService.getItems(userId, type);
