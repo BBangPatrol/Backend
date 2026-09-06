@@ -7,13 +7,13 @@ import com.bbangpatrol.bakery.dto.BakeryFavoriteResponse;
 import com.bbangpatrol.bakery.dto.BakerySearchRequest;
 import com.bbangpatrol.bakery.dto.BakerySearchResponse;
 import com.bbangpatrol.bakery.entity.Bakery;
-import com.bbangpatrol.bakery.entity.BakeryImage;
 import com.bbangpatrol.bakery.entity.SignatureImage;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.bookmark.entity.Bookmark;
 import com.bbangpatrol.bookmark.repository.BookmarkRepository;
 import com.bbangpatrol.common.enums.Region;
 import com.bbangpatrol.common.exception.ApiException;
+import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
 import com.bbangpatrol.visit.repository.VisitRepository;
@@ -51,6 +51,8 @@ class BakeryServiceTest {
     private AttractionCache attractionCache;
     @Mock
     private TourApiClient tourApiClient;
+    @Mock
+    private R2Service r2Service;
 
     @InjectMocks
     private BakeryService bakeryService;
@@ -132,20 +134,43 @@ class BakeryServiceTest {
                 .region(Region.YUSEONG)
                 .summary("AI 요약")
                 .content("가게 상세 설명")
-                .bakeryImages(List.of(BakeryImage.builder().imageUrl("main.jpg").build()))
-                .signatureImages(List.of(SignatureImage.builder().imageUrl("signature.jpg").build()))
+                .signatureImages(List.of(SignatureImage.builder().imageUrl("bakeries/1/signature_menu.jpg").build()))
                 .build();
         when(bakeryRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(bakery));
         when(visitRepository.sumVisitCountByBakeryId(1L)).thenReturn(7L);
         when(bookmarkRepository.existsByUserIdAndBakeryId(10L, 1L)).thenReturn(true);
+        when(r2Service.getPublicUrl("bakeries/1/signature_menu.jpg")).thenReturn("https://cdn.test/bakeries/1/signature_menu.jpg");
 
         BakeryDetailResponse response = bakeryService.getBakeryDetail(10L, 1L);
 
         assertThat(response.bakery().region()).isEqualTo("유성구");
         assertThat(response.bakery().summary()).isEqualTo("AI 요약");
         assertThat(response.bakery().content()).isEqualTo("가게 상세 설명");
+        assertThat(response.bakery().image())
+                .isEqualTo("https://cdn.test/bakeries/1/signature_menu.jpg");
         assertThat(response.visitCnt()).isEqualTo(7L);
         assertThat(response.likes()).isTrue();
+    }
+
+    @Test
+    void 목록_썸네일은_시그니처_이미지_첫_장을_사용한다() {
+        Bakery bakery = Bakery.builder()
+                .id(1L)
+                .name("빵집 A")
+                .avgRating(new BigDecimal("4.5"))
+                .signatureImages(List.of(SignatureImage.builder().imageUrl("bakeries/1/signature_menu.jpg").build()))
+                .build();
+        when(bakeryRepository.findBakeryIdsForSearch(any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of(1L));
+        when(bakeryRepository.findAllById(List.of(1L))).thenReturn(List.of(bakery));
+        when(visitRepository.sumVisitCountsByBakeryIds(List.of(1L))).thenReturn(List.of());
+        when(r2Service.getPublicUrl("bakeries/1/signature_menu.jpg")).thenReturn("https://cdn.test/bakeries/1/signature_menu.jpg");
+
+        BakerySearchResponse response = bakeryService.searchBakeries(null,
+                new BakerySearchRequest("rating", null, null, null, null));
+
+        assertThat(response.result().get(0).bakery().image())
+                .isEqualTo("https://cdn.test/bakeries/1/signature_menu.jpg");
     }
 
     private Bakery bakery(Long id, String name, String rating) {
