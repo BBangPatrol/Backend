@@ -1,7 +1,6 @@
 package com.bbangpatrol.item.controller;
 
 import com.bbangpatrol.common.util.ApiResponse;
-import com.bbangpatrol.item.dto.DrawResult;
 import com.bbangpatrol.item.dto.DrawResultResponse;
 import com.bbangpatrol.item.dto.ItemListResponse;
 import com.bbangpatrol.item.service.ItemService;
@@ -32,10 +31,10 @@ public class ItemController {
     public ResponseEntity<ApiResponse<DrawResultResponse>> drawItem(
             @AuthenticationPrincipal Long userId
     ) {
-        DrawResult drawResult = itemService.drawItem(userId);
-        HttpStatus status = drawResult.isDuplicated() ? HttpStatus.OK : HttpStatus.CREATED;
-        String message = drawResult.isDuplicated() ? "요청은 성공적이나, 중복 아이템이 뽑혀 소량의 포인트를 환불해드립니다"
+        DrawResultResponse drawResult = itemService.drawItem(userId);
+        HttpStatus status = drawResult.duplicated() ? HttpStatus.OK : HttpStatus.CREATED;
+        String message = drawResult.duplicated() ? "요청은 성공적이나, 중복 아이템이 뽑혀 소량의 포인트를 환불해드립니다"
                 : "뽑기에 성공했습니다.";
-        return ResponseEntity.status(status).body(ApiResponse.onSuccess(status, message, drawResult.response()));
+        return ResponseEntity.status(status).body(ApiResponse.onSuccess(status, message, drawResult));
     }
 }

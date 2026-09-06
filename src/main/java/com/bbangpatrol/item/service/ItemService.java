@@ -2,7 +2,6 @@ package com.bbangpatrol.item.service;
 
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
-import com.bbangpatrol.item.dto.DrawResult;
 import com.bbangpatrol.item.dto.DrawResultResponse;
 import com.bbangpatrol.item.dto.ItemListResponse;
 import com.bbangpatrol.item.dto.ItemResponse;
@@ -28,7 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class ItemService {
 
     private static final int ITEM_COST = 100;
-    private static final int DUPLICATE_REFUND_POINT = 5;
+    private static final int DUPLICATE_REFUND_POINT = 20;
 
     private final ItemRepository itemRepository;
     private final UserItemRepository userItemRepository;
@@ -38,7 +37,7 @@ public class ItemService {
     private final PointService pointService;
 
     @Transactional
-    public DrawResult drawItem(Long userId) {
+    public DrawResultResponse drawItem(Long userId) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("존재하지 않는 유저입니다."));
 
@@ -46,8 +45,10 @@ public class ItemService {
         
         Item drawItem = drawRandomItem();
         boolean isDuplicated = userItemRepository.existsByUserIdAndItemId(userId, drawItem.getId());
+        int refundPoint = 0;
         if (isDuplicated) {
             pointService.updatePoint(userId, DUPLICATE_REFUND_POINT, true, "중복 수집품 환급");
+            refundPoint = DUPLICATE_REFUND_POINT;
         } else {
             userItemRepository.save(UserItem.builder()
                     .acquiredAt(LocalDateTime.now())
@@ -58,8 +59,15 @@ public class ItemService {
         // 수집품 미션 진행도 갱신
         missionEvaluator.onItemDrawn(userId);
 
-        DrawResultResponse response = new DrawResultResponse(drawItem.getId(), user.getPointBalance());
-        return new DrawResult(response, isDuplicated);
+        // 결과 화면이 도감 목록을 다시 받지 않아도 되도록 아이템 정보를 함께 내려준다
+        return new DrawResultResponse(
+                drawItem.getId(),
+                drawItem.getName(),
+                drawItem.getRank(),
+                r2Service.getPublicUrl(drawItem.getImageUrl()),
+                isDuplicated,
+                refundPoint,
+                user.getPointBalance());
     }
 
     private Item drawRandomItem() {
@@ -79,6 +87,7 @@ public class ItemService {
                 .map(item -> new ItemResponse(
                         item.getId(),
                         item.getName(),
+                        item.getRank(),
                         r2Service.getPublicUrl(item.getImageUrl())
                 )).toList();
         return new ItemListResponse(itemResponses, (long) itemResponses.size());
