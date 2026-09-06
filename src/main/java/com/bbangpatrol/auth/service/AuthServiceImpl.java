@@ -1,14 +1,12 @@
 package com.bbangpatrol.auth.service;
 
-import com.bbangpatrol.auth.dto.KakaoUserInfo;
-import com.bbangpatrol.auth.dto.ReissueResult;
+import com.bbangpatrol.auth.dto.*;
 import com.bbangpatrol.auth.repository.RefreshTokenRepository;
 import com.bbangpatrol.common.exception.ApiException;
+import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.common.client.KakaoOAuthClient;
-import com.bbangpatrol.auth.dto.LoginRequest;
-import com.bbangpatrol.auth.dto.LoginResult;
 import com.bbangpatrol.user.repository.UserRepository;
 import com.bbangpatrol.util.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +27,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtProvider jwtProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final StringRedisTemplate redisTemplate;
+    private final R2Service r2Service;
 
 
     // 로그인 / 회원가입 관련
@@ -110,5 +109,23 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenRepository.save(userId, newRefresh);
 
         return new ReissueResult(newAccess, newRefresh);
+    }
+
+    @Override
+    public MeResponse getMe(Long userId) {
+        log.info("[AuthServiceImpl] 사용자 본인 정보 조회, userId: {}", userId);
+
+        User user = getUser(userId);
+
+        MeResponse response = new MeResponse();
+        response.setId(userId);
+        response.setUserNickname(user.getName());
+        response.setImageUrl(r2Service.getPublicUrl(user.getUserImage()));
+
+        return response;
+    }
+
+    private User getUser(Long userId) {
+        return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
     }
 }
