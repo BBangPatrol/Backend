@@ -11,6 +11,7 @@ import com.bbangpatrol.item.entity.UserItem;
 import com.bbangpatrol.item.repository.ItemRepository;
 import com.bbangpatrol.item.repository.UserItemRepository;
 import com.bbangpatrol.mission.service.MissionEvaluator;
+import com.bbangpatrol.point.service.PointService;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,25 +27,27 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 public class ItemService {
 
-    private final int ITEM_COST = 100;
+    private static final int ITEM_COST = 100;
+    private static final int DUPLICATE_REFUND_POINT = 5;
 
     private final ItemRepository itemRepository;
     private final UserItemRepository userItemRepository;
     private final UserRepository userRepository;
     private final R2Service r2Service;
     private final MissionEvaluator missionEvaluator;
+    private final PointService pointService;
 
     @Transactional
     public DrawResult drawItem(Long userId) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("존재하지 않는 유저입니다."));
 
-        if (user.getPointBalance() < ITEM_COST) throw new IllegalStateException("사용자의 잔액이 부족합니다.");
+        pointService.updatePoint(userId, ITEM_COST, false, "수집품 뽑기");
         
         Item drawItem = drawRandomItem();
         boolean isDuplicated = userItemRepository.existsByUserIdAndItemId(userId, drawItem.getId());
         if (isDuplicated) {
-            user.addPoint(5);
+            pointService.updatePoint(userId, DUPLICATE_REFUND_POINT, true, "중복 수집품 환급");
         } else {
             userItemRepository.save(UserItem.builder()
                     .acquiredAt(LocalDateTime.now())
