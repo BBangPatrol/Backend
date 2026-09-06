@@ -76,9 +76,10 @@ public class UserService {
                         .collected(Math.toIntExact(collected))
                         .total(Math.toIntExact(total))
                         .items(userItemList.stream().map(ui -> UserResponseDTO.CollectionItem.builder()
-                                .id(ui.getItem().getId())
+                                .collectibleId(ui.getItem().getId())
                                 .name(ui.getItem().getName())
-                                .url(r2Service.getPublicUrl(ui.getItem().getImageUrl())).build()).toList()).build())
+                                .rank(ui.getItem().getRank())
+                                .image(r2Service.getPublicUrl(ui.getItem().getImageUrl())).build()).toList()).build())
                 .map(visitList.stream().map(visit -> {
                     Bakery bakery = visit.getBakery();
 
