@@ -65,7 +65,7 @@ public class UserService {
 
         List<Visit> visitList = visitRepository.findByUser(user);
 
-        Long reviewCnt = reviewRepository.countByUser(user);
+        Long reviewCnt = reviewRepository.countByUserAndDeletedAtIsNull(user);
         Long reviewLikes = reviewLikeRepository.countLikes(user);
 
         List<MissionProgress> progressList = missionProgressRepository.findByUserOrderByStatusAndUpdatedAt(user);
