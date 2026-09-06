@@ -3,7 +3,7 @@ package com.bbangpatrol.item.dto;
 import com.bbangpatrol.item.entity.ItemRank;
 
 public record DrawResultResponse(
-        Long itemId,
+        Long collectibleId,
         String name,
         ItemRank rank,
         String image,

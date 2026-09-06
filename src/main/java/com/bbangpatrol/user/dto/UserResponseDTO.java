@@ -1,6 +1,7 @@
 package com.bbangpatrol.user.dto;
 
 import com.bbangpatrol.common.dto.PageInfo;
+import com.bbangpatrol.item.entity.ItemRank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -39,9 +40,10 @@ public class UserResponseDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CollectionItem {
-        Long id;
+        Long collectibleId;
         String name;
-        String url;
+        ItemRank rank;
+        String image;
     }
 
     @Data
