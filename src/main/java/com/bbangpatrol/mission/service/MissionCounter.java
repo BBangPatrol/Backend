@@ -1,6 +1,7 @@
 package com.bbangpatrol.mission.service;
 
 import com.bbangpatrol.common.enums.Region;
+import com.bbangpatrol.item.entity.ItemRank;
 import com.bbangpatrol.mission.entity.Mission;
 import com.bbangpatrol.mission.repository.MissionCountRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,9 @@ public class MissionCounter {
             case DISTINCT_BAKERY -> missionCountRepository.countDistinctBakeries(userId);
             case REVIEW_COUNT -> missionCountRepository.countReviews(userId);
             case DISTINCT_ITEM -> missionCountRepository.countDistinctItems(userId);
+            case DISTINCT_ITEM_RARE -> missionCountRepository.countDistinctItemsByRank(userId, ItemRank.RARE);
+            case DISTINCT_ITEM_EPIC -> missionCountRepository.countDistinctItemsByRank(userId, ItemRank.EPIC);
+            case DISTINCT_ITEM_LEGENDARY -> missionCountRepository.countDistinctItemsByRank(userId, ItemRank.LEGENDARY);
             case NOT_SUPPORTED -> 0L; // 판정 불가. 진행도를 올리지 않는다
         };
         return (int) counted;
