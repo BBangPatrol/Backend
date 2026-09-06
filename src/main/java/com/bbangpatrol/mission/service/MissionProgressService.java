@@ -5,9 +5,9 @@ import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.mission.dto.MissionRewardResponse;
 import com.bbangpatrol.mission.entity.MissionProgress;
 import com.bbangpatrol.mission.repository.MissionProgressRepository;
-import com.bbangpatrol.point.entity.PointType;
+import com.bbangpatrol.point.service.PointService;
+import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
-import com.bbangpatrol.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,11 +18,11 @@ public class MissionProgressService {
 
     private final MissionProgressRepository missionProgressRepository;
     private final UserRepository userRepository;
-    private final UserService userService;
+    private final PointService pointService;
 
     @Transactional
     public MissionRewardResponse receiveReward(Long userId, Long missionId) {
-        userRepository.findByIdForUpdate(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         MissionProgress target = missionProgressRepository
@@ -34,12 +34,8 @@ public class MissionProgressService {
         Integer rewardPoint = target.getMission().getRewardPoint();
         int earnPoint = rewardPoint == null ? 0 : rewardPoint;
 
-        Integer totalPoint = userService.addPoint(
-                userId,
-                earnPoint,
-                PointType.earn,
-                target.getMission().getTitle() + " 미션 보상"
-        );
-        return new MissionRewardResponse(earnPoint, totalPoint);
+        pointService.updatePoint(userId, earnPoint, true, target.getMission().getTitle() + " 미션 보상");
+
+        return new MissionRewardResponse(earnPoint, user.getPointBalance());
     }
 }

@@ -10,7 +10,6 @@ import com.bbangpatrol.item.repository.ItemRepository;
 import com.bbangpatrol.item.repository.UserItemRepository;
 import com.bbangpatrol.mission.entity.MissionProgress;
 import com.bbangpatrol.point.entity.Point;
-import com.bbangpatrol.point.entity.PointType;
 import com.bbangpatrol.point.repository.PointRepository;
 import com.bbangpatrol.review.entity.Review;
 import com.bbangpatrol.review.repository.ReviewLikeRepository;
@@ -23,17 +22,21 @@ import com.bbangpatrol.visit.entity.Visit;
 import com.bbangpatrol.visit.repository.VisitRepository;
 import com.bbangpatrol.mission.repository.MissionProgressRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class UserService {
 
@@ -50,22 +53,7 @@ public class UserService {
     private static final List<String> ALLOWED_PROFILE_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/webp");
     private static final int POINT_HISTORY_PAGE_SIZE = 20;
     private static final int REVIEW_HISTORY_PAGE_SIZE = 20;
-
-    @Transactional
-    public Integer addPoint(Long userId, Integer point, PointType type, String content) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
-
-        user.addPoint(point);
-        pointRepository.save(Point.builder()
-                .user(user)
-                .type(type)
-                .amount(point)
-                .content(content)
-                .createdAt(LocalDateTime.now())
-                .build());
-        return user.getPointBalance();
-    }
+    private static final String USERS_DIR = "users";
 
     @Transactional
     public UserResponseDTO.MyPageDTO getMyPage(Long userId) {
@@ -131,8 +119,29 @@ public class UserService {
         if(request == null || request.isEmpty()) throw new ApiException(ErrorCode.BAD_REQUEST);
         if(!ALLOWED_PROFILE_IMAGE_TYPES.contains(request.getContentType())) throw new ApiException(ErrorCode.UNSUPPORTED_MEDIA_TYPE415);
 
-        String key = r2Service.getPublicUrl(r2Service.uploadFile(request, String.valueOf(user.getId())));
+        String previousKey = user.getUserImage();
+
+        // 저장하는 값은 키다. URL 변환은 조회하는 쪽에서 getPublicUrl 로 한다
+        String key = r2Service.uploadFile(request, USERS_DIR + "/" + user.getId());
         user.updateImage(key);
+
+        deletePreviousImageAfterCommit(userId, previousKey, key);
+    }
+
+    // 커밋된 이후에 이전 프로필 이미지를 지운다. 롤백되면 지우지 않는다
+    private void deletePreviousImageAfterCommit(Long userId, String previousKey, String newKey) {
+        if (!StringUtils.hasText(previousKey) || previousKey.equals(newKey)) return;
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    r2Service.deleteFile(previousKey);
+                } catch (Exception e) {
+                    log.error("이전 프로필 이미지 삭제가 실패했습니다. userId={}, key={}", userId, previousKey);
+                }
+            }
+        });
     }
 
     @Transactional(readOnly = true)
