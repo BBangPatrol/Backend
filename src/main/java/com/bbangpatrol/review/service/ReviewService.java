@@ -98,7 +98,8 @@ public class ReviewService {
                 .collect(Collectors.groupingBy(
                         img -> img.getReview().getId(),
                         Collectors.mapping(
-                                ReviewImage::getImageUrl,
+                                // 저장된 값은 R2 키다. 응답에는 public URL 로 변환해서 내려준다
+                                img -> r2Service.getPublicUrl(img.getImageUrl()),
                                 Collectors.toList()
                         )
                 ));
@@ -117,7 +118,7 @@ public class ReviewService {
                     review.getId(),
                     review.getUser().getId(),
                     review.getUser().getName(),
-                    review.getUser().getUserImage(),
+                    r2Service.getPublicUrl(review.getUser().getUserImage()),
                     review.getRating(),
                     review.getContent(),
                     keywordMap.getOrDefault(review.getId(), List.of()),

@@ -14,12 +14,15 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class BakeryController {
 
+    // API 명세서의 성공 응답 메시지
+    private static final String SUCCESS_MESSAGE = "요청이 성공적입니다.";
+
     private final BakeryService bakeryService;
 
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<BakerySearchResponse>> searchBakeries(@AuthenticationPrincipal Long userId, @ModelAttribute BakerySearchRequest request) {
         BakerySearchResponse response = bakeryService.searchBakeries(userId, request);
-        return ResponseEntity.ok(ApiResponse.onSuccess(HttpStatus.OK, response));
+        return ResponseEntity.ok(ApiResponse.onSuccess(HttpStatus.OK, SUCCESS_MESSAGE, response));
     }
 
     @PostMapping("/{storeId}/favorites")
@@ -27,13 +30,13 @@ public class BakeryController {
         BakeryFavoriteResponse response = bakeryService.toggleFavorite(userId, storeId);
         HttpStatus status = response.likes() ? HttpStatus.CREATED : HttpStatus.OK;
 
-        return ResponseEntity.status(status).body(ApiResponse.onSuccess(status, response));
+        return ResponseEntity.status(status).body(ApiResponse.onSuccess(status, SUCCESS_MESSAGE, response));
     }
 
     @GetMapping("/{storeId}/detail")
     public ResponseEntity<ApiResponse<BakeryDetailResponse>> getBakeryDetail(@AuthenticationPrincipal Long userId, @PathVariable long storeId) {
         BakeryDetailResponse response = bakeryService.getBakeryDetail(userId, storeId);
-        return ResponseEntity.ok(ApiResponse.onSuccess(HttpStatus.OK, response));
+        return ResponseEntity.ok(ApiResponse.onSuccess(HttpStatus.OK, SUCCESS_MESSAGE, response));
     }
 
     @GetMapping("/{storeId}/attractions")
@@ -42,6 +45,6 @@ public class BakeryController {
     ) {
         AttractionListResponse response = bakeryService.getNearbyAttractions(storeId);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.onSuccess(
-                HttpStatus.OK, "요청이 성공적입니다.", response));
+                HttpStatus.OK, SUCCESS_MESSAGE, response));
     }
 }

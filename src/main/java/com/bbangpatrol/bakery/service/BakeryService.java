@@ -11,6 +11,7 @@ import com.bbangpatrol.bookmark.entity.Bookmark;
 import com.bbangpatrol.bookmark.repository.BookmarkRepository;
 import com.bbangpatrol.common.dto.PageInfo;
 import com.bbangpatrol.common.exception.ApiException;
+import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
@@ -41,6 +42,7 @@ public class BakeryService {
     private final VisitRepository visitRepository;
     private final AttractionCache attractionCache;
     private final TourApiClient tourApiClient;
+    private final R2Service r2Service;
 
     @Transactional(readOnly = true)
     public BakerySearchResponse searchBakeries(Long userId, BakerySearchRequest request) {
@@ -65,7 +67,7 @@ public class BakeryService {
                 .map(bakeryMap::get)
                 .filter(Objects::nonNull)
                 .map(bakery -> new BakerySearchItemResponse(
-                        BakerySummaryResponse.from(bakery),
+                        BakerySummaryResponse.from(bakery, r2Service::getPublicUrl),
                         visitCounts.getOrDefault(bakery.getId(), 0L),
                         favoriteBakeryIds.contains(bakery.getId())
                 ))
@@ -103,7 +105,7 @@ public class BakeryService {
         long visitCount = visitRepository.sumVisitCountByBakeryId(storeId);
         boolean likes = userId != null && bookmarkRepository.existsByUserIdAndBakeryId(userId, storeId);
 
-        return new BakeryDetailResponse(BakeryDetail.from(bakery), visitCount, likes);
+        return new BakeryDetailResponse(BakeryDetail.from(bakery, r2Service::getPublicUrl), visitCount, likes);
     }
 
     public AttractionListResponse getNearbyAttractions(Long storeId) {
