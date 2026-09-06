@@ -22,6 +22,11 @@ public class BakeryController {
         return ResponseEntity.ok(ApiResponse.onSuccess(HttpStatus.OK, response));
     }
 
+    @GetMapping("/hot")
+    public ResponseEntity<ApiResponse<HotBakeryResponse.BakeryListDTO>> hotBakeries() {
+        return ResponseEntity.ok(ApiResponse.onSuccess(bakeryService.getHotBakery()));
+    }
+
     @PostMapping("/{storeId}/favorites")
     public ResponseEntity<ApiResponse<BakeryFavoriteResponse>> toggleFavorite(@AuthenticationPrincipal Long userId, @PathVariable long storeId) {
         BakeryFavoriteResponse response = bakeryService.toggleFavorite(userId, storeId);
