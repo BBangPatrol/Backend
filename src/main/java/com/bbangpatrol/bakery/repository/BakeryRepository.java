@@ -54,6 +54,20 @@ public interface BakeryRepository extends JpaRepository<Bakery, Long> {
             Pageable pageable
     );
 
+    @Query(value = """
+            SELECT b.*
+            FROM bakery b
+            LEFT JOIN visits v ON v.bakery_id = b.id
+            LEFT JOIN visit_detail vd ON vd.visit_id = v.id
+            WHERE b.deleted_at IS NULL
+            GROUP BY b.id
+            ORDER BY COUNT(vd.id) DESC,
+                     MAX(vd.visited_at) DESC,
+                     b.id DESC
+            LIMIT 5
+            """, nativeQuery = true)
+    List<Bakery> findHotBakeries();
+
     @Query("""
             select b.businessNumber
             from Bakery b

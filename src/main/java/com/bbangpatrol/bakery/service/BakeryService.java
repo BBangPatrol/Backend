@@ -75,6 +75,21 @@ public class BakeryService {
         return new BakerySearchResponse(result, new PageInfo(result.size(), hasNext, nextCursor));
     }
 
+    @Transactional(readOnly = true)
+    public HotBakeryResponse.BakeryListDTO getHotBakery() {
+        return HotBakeryResponse.BakeryListDTO.builder()
+                .stores(bakeryRepository.findHotBakeries()
+                        .stream()
+                        .map(bakery -> HotBakeryResponse.BakerySimpleDTO.builder()
+                                .storeId(bakery.getId())
+                                .storeName(bakery.getName())
+                                .rating(bakery.getAvgRating())
+                                .region(bakery.getRegion() == null ? null : bakery.getRegion().getValue())
+                                .build())
+                        .toList())
+                .build();
+    }
+
     @Transactional
     public BakeryFavoriteResponse toggleFavorite(Long userId, Long storeId) {
         if (userId == null) throw new ApiException(ErrorCode.UNAUTHORIZED_401);
