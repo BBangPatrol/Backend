@@ -129,8 +129,9 @@ public class ReviewService {
 
         Long nextCursor = hasNext ? content.get(content.size() - 1).getId() : null;
         PageInfo pageInfo = new PageInfo(content.size(), hasNext, nextCursor);
+        long totalReviewCount = reviewRepository.countByBakery_IdAndDeletedAtIsNull(storeId);
 
-        return new ReviewListResponse(reviewResponses, pageInfo);
+        return new ReviewListResponse(reviewResponses, totalReviewCount, pageInfo);
     }
 
     @Transactional
