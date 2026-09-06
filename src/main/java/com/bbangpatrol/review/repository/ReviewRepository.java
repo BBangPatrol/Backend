@@ -10,7 +10,6 @@ import java.util.List;
 import org.springframework.data.repository.query.Param;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
-    Long countByUser(User user);
     Long countByUserAndDeletedAtIsNull(User user);
 
     @Query("SELECT COALESCE(SUM(r.likeCount), 0) FROM Review r WHERE r.user = :user AND r.deletedAt IS NULL")
@@ -38,4 +37,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             @Param("bakeryId") long bakeryId,
             @Param("cursor") Long cursor,
             Pageable pageable);
+
+    long countByBakery_IdAndDeletedAtIsNull(Long bakeryId);
 }
