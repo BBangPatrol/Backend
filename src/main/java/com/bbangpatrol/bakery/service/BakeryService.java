@@ -67,7 +67,8 @@ public class BakeryService {
                 .map(bakeryMap::get)
                 .filter(Objects::nonNull)
                 .map(bakery -> new BakerySearchItemResponse(
-                        BakerySummaryResponse.from(bakery, r2Service::getPublicUrl),
+                        // 목록은 101개를 한 번에 받으므로 원본(평균 610KB) 대신 썸네일을 내려준다
+                        BakerySummaryResponse.from(bakery, r2Service::getThumbnailPublicUrl),
                         visitCounts.getOrDefault(bakery.getId(), 0L),
                         favoriteBakeryIds.contains(bakery.getId())
                 ))

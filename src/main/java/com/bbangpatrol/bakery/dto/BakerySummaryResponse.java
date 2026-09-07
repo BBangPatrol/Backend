@@ -17,7 +17,8 @@ public record BakerySummaryResponse(
         String signatureMenu
 ) {
 
-    // toUrl: 저장된 R2 키를 public URL 로 변환한다 (R2Service::getPublicUrl)
+    // toUrl: 저장된 R2 키를 public URL 로 변환한다.
+    // 목록 응답이라 호출측이 썸네일 변환기(R2Service::getThumbnailPublicUrl)를 넘긴다.
     public static BakerySummaryResponse from(Bakery bakery, UnaryOperator<String> toUrl) {
         return new BakerySummaryResponse(
                 bakery.getId(),

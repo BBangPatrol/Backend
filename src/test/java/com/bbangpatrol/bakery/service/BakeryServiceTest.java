@@ -164,13 +164,15 @@ class BakeryServiceTest {
                 .thenReturn(List.of(1L));
         when(bakeryRepository.findAllById(List.of(1L))).thenReturn(List.of(bakery));
         when(visitRepository.sumVisitCountsByBakeryIds(List.of(1L))).thenReturn(List.of());
-        when(r2Service.getPublicUrl("bakeries/1/signature_menu.jpg")).thenReturn("https://cdn.test/bakeries/1/signature_menu.jpg");
+        // 목록은 빵집 101개를 한 번에 받으므로 원본이 아니라 썸네일 URL 을 내려준다
+        when(r2Service.getThumbnailPublicUrl("bakeries/1/signature_menu.jpg"))
+                .thenReturn("https://cdn.test/bakeries/1/signature_menu_thumb.jpg");
 
         BakerySearchResponse response = bakeryService.searchBakeries(null,
                 new BakerySearchRequest("rating", null, null, null, null));
 
         assertThat(response.result().get(0).bakery().image())
-                .isEqualTo("https://cdn.test/bakeries/1/signature_menu.jpg");
+                .isEqualTo("https://cdn.test/bakeries/1/signature_menu_thumb.jpg");
     }
 
     private Bakery bakery(Long id, String name, String rating) {
