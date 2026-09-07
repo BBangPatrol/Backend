@@ -51,6 +51,9 @@ public class UserService {
     private final R2Service r2Service;
 
     private static final List<String> ALLOWED_PROFILE_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/webp");
+    // 프로필 이미지는 아바타로만 쓰이므로 400px 한 장이면 충분하다 (리뷰 목록에 20개가 함께 뜬다)
+    private static final int PROFILE_IMAGE_MAX_DIMENSION = 400;
+    private static final float PROFILE_IMAGE_QUALITY = 0.8f;
     private static final int POINT_HISTORY_PAGE_SIZE = 20;
     private static final int REVIEW_HISTORY_PAGE_SIZE = 20;
     private static final String USERS_DIR = "users";
@@ -122,8 +125,10 @@ public class UserService {
 
         String previousKey = user.getUserImage();
 
-        // 저장하는 값은 키다. URL 변환은 조회하는 쪽에서 getPublicUrl 로 한다
-        String key = r2Service.uploadFile(request, USERS_DIR + "/" + user.getId());
+        // 저장하는 값은 키다. URL 변환은 조회하는 쪽에서 getPublicUrl 로 한다.
+        // 원본 대신 400px JPEG 로 줄여 올린다
+        String key = r2Service.uploadResizedImage(
+                request, USERS_DIR + "/" + user.getId(), PROFILE_IMAGE_MAX_DIMENSION, PROFILE_IMAGE_QUALITY);
         user.updateImage(key);
 
         deletePreviousImageAfterCommit(userId, previousKey, key);

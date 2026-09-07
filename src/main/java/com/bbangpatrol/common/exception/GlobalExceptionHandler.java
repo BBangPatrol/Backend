@@ -8,6 +8,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.io.IOException;
 
@@ -31,6 +32,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IOException.class)
     public ApiResponse handleIOException(IOException exception) {
         return ApiResponse.onFailure("IOEXCEPTION", exception.getMessage());
+    }
+
+    // 한도 초과 업로드는 핸들러가 없으면 500 이 나간다. 사용자가 원인을 알 수 있게 413 으로 내려준다
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException exception) {
+        ErrorCode errorCode = ErrorCode.UPLOAD_TOO_LARGE;
+        log.warn("업로드 용량 초과: {}", exception.getMessage());
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage()));
     }
 
     @ExceptionHandler(DataAccessException.class)

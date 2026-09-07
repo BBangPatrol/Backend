@@ -158,17 +158,48 @@ class BakeryServiceTest {
                 .id(1L)
                 .name("빵집 A")
                 .avgRating(new BigDecimal("4.5"))
-                .signatureImages(List.of(SignatureImage.builder().imageUrl("bakeries/1/signature_menu.jpg").build()))
+                .signatureImages(List.of(SignatureImage.builder()
+                        .imageUrl("bakeries/1/signature_menu.jpg")
+                        .thumbnailUrl("bakeries/1/signature_menu_thumb.jpg")
+                        .build()))
                 .build();
         when(bakeryRepository.findBakeryIdsForSearch(any(), any(), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(List.of(1L));
         when(bakeryRepository.findAllById(List.of(1L))).thenReturn(List.of(bakery));
         when(visitRepository.sumVisitCountsByBakeryIds(List.of(1L))).thenReturn(List.of());
-        when(r2Service.getPublicUrl("bakeries/1/signature_menu.jpg")).thenReturn("https://cdn.test/bakeries/1/signature_menu.jpg");
+        // 목록은 빵집 20개를 한 번에 받으므로 원본이 아니라 저장된 썸네일 key 를 쓴다
+        when(r2Service.getPublicUrl("bakeries/1/signature_menu_thumb.jpg"))
+                .thenReturn("https://cdn.test/bakeries/1/signature_menu_thumb.jpg");
 
         BakerySearchResponse response = bakeryService.searchBakeries(null,
                 new BakerySearchRequest("rating", null, null, null, null));
 
+        assertThat(response.result().get(0).bakery().image())
+                .isEqualTo("https://cdn.test/bakeries/1/signature_menu_thumb.jpg");
+    }
+
+    @Test
+    void 목록_썸네일이_없으면_원본으로_폴백한다() {
+        Bakery bakery = Bakery.builder()
+                .id(1L)
+                .name("빵집 A")
+                .avgRating(new BigDecimal("4.5"))
+                // thumbnail_url 이 NULL 인 행 (백필 전 데이터나 썸네일 생성 실패)
+                .signatureImages(List.of(SignatureImage.builder()
+                        .imageUrl("bakeries/1/signature_menu.jpg")
+                        .build()))
+                .build();
+        when(bakeryRepository.findBakeryIdsForSearch(any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of(1L));
+        when(bakeryRepository.findAllById(List.of(1L))).thenReturn(List.of(bakery));
+        when(visitRepository.sumVisitCountsByBakeryIds(List.of(1L))).thenReturn(List.of());
+        when(r2Service.getPublicUrl("bakeries/1/signature_menu.jpg"))
+                .thenReturn("https://cdn.test/bakeries/1/signature_menu.jpg");
+
+        BakerySearchResponse response = bakeryService.searchBakeries(null,
+                new BakerySearchRequest("rating", null, null, null, null));
+
+        // 404 가 나가지 않도록 원본 URL 을 내려준다
         assertThat(response.result().get(0).bakery().image())
                 .isEqualTo("https://cdn.test/bakeries/1/signature_menu.jpg");
     }
