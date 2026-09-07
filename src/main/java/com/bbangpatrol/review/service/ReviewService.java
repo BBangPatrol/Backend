@@ -94,12 +94,24 @@ public class ReviewService {
         // 리뷰 아이디만 따로 모으기 => 리뷰 이미지 조회, 리뷰 키워드 조회
         List<Long> reviewIds = content.stream().map(Review::getId).toList();
 
-        Map<Long, List<String>> imageMap = reviewImageRepository.findAllByReviewIdIn(reviewIds).stream()
+        List<ReviewImage> reviewImages = reviewImageRepository.findAllByReviewIdIn(reviewIds);
+
+        Map<Long, List<String>> imageMap = reviewImages.stream()
                 .collect(Collectors.groupingBy(
                         img -> img.getReview().getId(),
                         Collectors.mapping(
                                 // 저장된 값은 R2 키다. 응답에는 public URL 로 변환해서 내려준다
                                 img -> r2Service.getPublicUrl(img.getImageUrl()),
+                                Collectors.toList()
+                        )
+                ));
+
+        // 목록에서는 원본 대신 썸네일만 렌더링하도록 함께 내려준다. 썸네일 key 는 원본 key 에서 파생한다
+        Map<Long, List<String>> thumbnailMap = reviewImages.stream()
+                .collect(Collectors.groupingBy(
+                        img -> img.getReview().getId(),
+                        Collectors.mapping(
+                                img -> r2Service.getPublicUrl(R2Service.thumbnailKey(img.getImageUrl())),
                                 Collectors.toList()
                         )
                 ));
@@ -123,6 +135,7 @@ public class ReviewService {
                     review.getContent(),
                     keywordMap.getOrDefault(review.getId(), List.of()),
                     imageMap.getOrDefault(review.getId(), List.of()),
+                    thumbnailMap.getOrDefault(review.getId(), List.of()),
                     review.getLikeCount(),
                     review.getCreatedAt()
                 )).toList();
@@ -224,7 +237,7 @@ public class ReviewService {
                 images.forEach(file -> {
                     String url = null;
                     try {
-                        url = r2Service.uploadImage(file, "reviews/" + review.getId());
+                        url = r2Service.uploadImageWithThumbnail(file, "reviews/" + review.getId());
                     } catch (IOException e) {
                         throw new ApiException(ErrorCode.R2_IO_ERROR);
                     }
@@ -239,7 +252,7 @@ public class ReviewService {
             // 오류 발생 시 업로드한 파일들 전부 삭제
             uploadedUrls.forEach(url -> {
                 try {
-                    r2Service.deleteFile(url);
+                    r2Service.deleteImageWithThumbnail(url);
                 } catch (Exception ex) {
                     log.error("R2 롤백 삭제 실패: {}", url);
                 }
@@ -261,7 +274,7 @@ public class ReviewService {
             public void afterCommit() {
                 urlsToDelete.forEach(url -> {
                     try {
-                        r2Service.deleteFile(url);
+                        r2Service.deleteImageWithThumbnail(url);
                     } catch (Exception e) {
                         log.error("R2 파일 삭제가 실패했습니다. reviewId={}", review.getId());
                     }
