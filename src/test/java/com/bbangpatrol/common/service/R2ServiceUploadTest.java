@@ -7,7 +7,9 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import javax.imageio.ImageIO;
 import java.awt.Color;
@@ -20,9 +22,12 @@ import java.io.IOException;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * 사용자가 리뷰 사진을 올리는 실제 경로({@code ReviewService.uploadAndSaveImages} →
@@ -46,14 +51,15 @@ class R2ServiceUploadTest {
     void uploadsOriginalAndThumbnail() throws IOException {
         MockMultipartFile file = photo("IMG_0001.JPG", "image/jpeg", 4032, 3024);
 
-        String key = r2Service.uploadImageWithThumbnail(file, "reviews/12");
+        UploadedImage uploaded = r2Service.uploadImageWithThumbnail(file, "reviews/12");
 
         Captured c = capture(2);
 
-        // 반환값은 원본 key 이며, DB 에는 이것만 저장된다
-        assertThat(key).matches("reviews/12/[0-9a-f-]{36}[.]jpg");
-        assertThat(c.keys()).containsExactly(key, R2Service.thumbnailKey(key));
-        assertThat(R2Service.thumbnailKey(key)).endsWith("_thumb.jpg");
+        // 두 key 를 모두 반환한다. DB 에는 이 두 값이 그대로 저장된다
+        assertThat(uploaded.key()).matches("reviews/12/[0-9a-f-]{36}[.]jpg");
+        assertThat(uploaded.thumbnailKey()).isEqualTo(R2Service.thumbnailKey(uploaded.key()));
+        assertThat(uploaded.thumbnailKey()).endsWith("_thumb.jpg");
+        assertThat(c.keys()).containsExactly(uploaded.key(), uploaded.thumbnailKey());
 
         // 둘 다 JPEG + 장기 캐시 헤더
         assertThat(c.requests().get(0).contentType()).isEqualTo("image/jpeg");
@@ -76,7 +82,9 @@ class R2ServiceUploadTest {
     @DisplayName("사진 여러 장을 올리면 장마다 원본+썸네일 한 쌍이 생긴다")
     void uploadsPairPerFile() throws IOException {
         for (int i = 1; i <= 3; i++) {
-            r2Service.uploadImageWithThumbnail(photo("p" + i + ".jpg", "image/jpeg", 2048, 1536), "reviews/12");
+            UploadedImage uploaded = r2Service.uploadImageWithThumbnail(
+                    photo("p" + i + ".jpg", "image/jpeg", 2048, 1536), "reviews/12");
+            assertThat(uploaded.thumbnailKey()).isNotNull();
         }
 
         Captured c = capture(6);
@@ -95,16 +103,17 @@ class R2ServiceUploadTest {
         byte[] gif = encode(new BufferedImage(600, 400, BufferedImage.TYPE_INT_RGB), "gif");
         MockMultipartFile file = new MockMultipartFile("reviewImages", "anim.gif", "image/gif", gif);
 
-        String key = r2Service.uploadImageWithThumbnail(file, "reviews/12");
+        UploadedImage uploaded = r2Service.uploadImageWithThumbnail(file, "reviews/12");
 
         Captured c = capture(2);
 
-        assertThat(key).endsWith(".gif");
+        assertThat(uploaded.key()).endsWith(".gif");
         // 애니메이션이 죽지 않도록 원본 바이트를 손대지 않는다
         assertThat(c.bytes().get(0)).isEqualTo(gif);
         assertThat(c.requests().get(0).contentType()).isEqualTo("image/gif");
         // 썸네일은 JPEG
-        assertThat(c.keys().get(1)).isEqualTo(R2Service.thumbnailKey(key)).endsWith("_thumb.jpg");
+        assertThat(uploaded.thumbnailKey()).endsWith("_thumb.jpg");
+        assertThat(c.keys().get(1)).isEqualTo(uploaded.thumbnailKey());
         assertThat(c.requests().get(1).contentType()).isEqualTo("image/jpeg");
     }
 
@@ -122,6 +131,24 @@ class R2ServiceUploadTest {
         assertThat(c.keys()).containsExactly(key);
         assertThat(Math.max(read(c.bytes().get(0)).getWidth(), read(c.bytes().get(0)).getHeight()))
                 .isEqualTo(400);
+    }
+
+    @Test
+    @DisplayName("썸네일 업로드가 실패하면 이미 올린 원본을 지운다")
+    void cleansUpOriginalWhenThumbnailFails() throws IOException {
+        // 첫 번째 putObject(원본)는 성공, 두 번째(썸네일)에서 실패시킨다
+        when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenReturn(null)
+                .thenThrow(S3Exception.builder().message("boom").build());
+
+        assertThatThrownBy(() ->
+                r2Service.uploadImageWithThumbnail(photo("x.jpg", "image/jpeg", 2048, 1536), "reviews/12"))
+                .isInstanceOf(S3Exception.class);
+
+        // 호출측은 key 를 받지 못하므로 스스로 치우지 못한다. R2Service 가 원본을 지워야 한다
+        ArgumentCaptor<DeleteObjectRequest> deleted = ArgumentCaptor.forClass(DeleteObjectRequest.class);
+        verify(s3Client).deleteObject(deleted.capture());
+        assertThat(deleted.getValue().key()).matches("reviews/12/[0-9a-f-]{36}[.]jpg");
     }
 
     // --- helpers ---

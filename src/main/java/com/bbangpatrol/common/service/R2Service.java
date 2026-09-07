@@ -1,6 +1,7 @@
 package com.bbangpatrol.common.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,6 +17,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class R2Service {
 
@@ -63,10 +65,10 @@ public class R2Service {
 
     /**
      * 이미지 업로드: 원본을 1080px JPEG 로 줄여 올리고, 목록용 400px 썸네일을 함께 올린다.
-     * 반환값은 원본 key 이며 썸네일 key 는 {@link #thumbnailKey(String)} 로 파생한다.
-     * 즉 DB 에는 원본 key 만 저장하면 되므로 스키마 변경이 필요 없다.
+     * 두 key 를 모두 반환하므로 호출측이 DB 에 그대로 저장한다.
+     * (키 규칙으로 파생하지 않는 이유: 썸네일이 없는 경우를 표현할 수 없어 404 URL 이 나가게 된다.)
      */
-    public String uploadImageWithThumbnail(MultipartFile file, String folder) throws IOException {
+    public UploadedImage uploadImageWithThumbnail(MultipartFile file, String folder) throws IOException {
         String extension = validateImageExtension(file);
         byte[] source = file.getBytes();
 
@@ -79,8 +81,19 @@ public class R2Service {
             putBytes(key, ImageResizer.toJpeg(source, ORIGIN_MAX_DIMENSION, ORIGIN_QUALITY), "image/jpeg");
         }
 
-        putBytes(thumbnailKey(key), ImageResizer.toJpeg(source, THUMBNAIL_MAX_DIMENSION, THUMBNAIL_QUALITY), "image/jpeg");
-        return key;
+        String thumbnailKey = thumbnailKey(key);
+        try {
+            putBytes(thumbnailKey, ImageResizer.toJpeg(source, THUMBNAIL_MAX_DIMENSION, THUMBNAIL_QUALITY), "image/jpeg");
+        } catch (Exception e) {
+            // 원본은 이미 올라갔는데 호출측은 key 를 받지 못한다. 여기서 치우지 않으면 고아 객체로 남는다
+            try {
+                deleteFile(key);
+            } catch (Exception cleanupFailure) {
+                log.error("썸네일 실패 후 원본 정리 실패. key={}", key, cleanupFailure);
+            }
+            throw e;
+        }
+        return new UploadedImage(key, thumbnailKey);
     }
 
     /**
@@ -95,8 +108,8 @@ public class R2Service {
     }
 
     /**
-     * 원본 key 에서 썸네일 key 를 파생한다.
-     * 썸네일 없이 올라간 과거 이미지는 이 key 가 404 이므로 클라이언트에서 원본으로 폴백해야 한다.
+     * 업로드 시 썸네일에 붙일 key 를 만든다. 조회는 DB 에 저장된 값을 쓰므로 여기서만 사용한다.
+     * (V7 마이그레이션이 기존 sig_image 를 채울 때도 같은 규칙을 SQL 로 재현한다.)
      */
     public static String thumbnailKey(String key) {
         if (key == null || key.isBlank()) return key;
@@ -145,10 +158,12 @@ public class R2Service {
         return key;
     }
 
-    // 원본과 함께 올라간 썸네일까지 지운다. 썸네일이 없으면 R2 삭제는 그냥 성공 처리된다
-    public void deleteImageWithThumbnail(String key) {
+    /** 원본과 썸네일을 함께 지운다. thumbnailKey 가 null 이면 원본만 지운다 */
+    public void deleteImage(String key, String thumbnailKey) {
         deleteFile(key);
-        deleteFile(thumbnailKey(key));
+        if (thumbnailKey != null && !thumbnailKey.isBlank()) {
+            deleteFile(thumbnailKey);
+        }
     }
 
     public void deleteFile(String key) {
@@ -162,14 +177,6 @@ public class R2Service {
 
     public String getFileUrl(String key) {
         return "https://" + accountId + ".r2.cloudflarestorage.com/" + bucketName + "/" + key;
-    }
-
-    /**
-     * 목록용 썸네일의 public URL. 썸네일이 아직 없는 key 는 404 이므로
-     * 클라이언트에서 원본으로 폴백해야 한다.
-     */
-    public String getThumbnailPublicUrl(String key) {
-        return getPublicUrl(thumbnailKey(key));
     }
 
     // Public 버킷 + CDN

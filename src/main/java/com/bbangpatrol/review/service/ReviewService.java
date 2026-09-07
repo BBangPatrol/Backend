@@ -5,6 +5,7 @@ import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.common.dto.PageInfo;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
+import com.bbangpatrol.common.service.UploadedImage;
 import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.mission.service.MissionEvaluator;
 import com.bbangpatrol.review.dto.ReviewListResponse;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -106,12 +108,16 @@ public class ReviewService {
                         )
                 ));
 
-        // 목록에서는 원본 대신 썸네일만 렌더링하도록 함께 내려준다. 썸네일 key 는 원본 key 에서 파생한다
+        // 목록에서는 원본 대신 썸네일만 렌더링하도록 함께 내려준다.
+        // 썸네일이 없는 행(thumbnail_url IS NULL)은 원본으로 폴백해 깨진 이미지가 나가지 않게 한다
         Map<Long, List<String>> thumbnailMap = reviewImages.stream()
                 .collect(Collectors.groupingBy(
                         img -> img.getReview().getId(),
                         Collectors.mapping(
-                                img -> r2Service.getPublicUrl(R2Service.thumbnailKey(img.getImageUrl())),
+                                img -> r2Service.getPublicUrl(
+                                        StringUtils.hasText(img.getThumbnailUrl())
+                                                ? img.getThumbnailUrl()
+                                                : img.getImageUrl()),
                                 Collectors.toList()
                         )
                 ));
@@ -232,29 +238,30 @@ public class ReviewService {
     }
 
     private void uploadAndSaveImages(Review review, List<MultipartFile> images) {
-        List<String> uploadedUrls = new ArrayList<>();
+        List<UploadedImage> uploaded = new ArrayList<>();
         try {
                 images.forEach(file -> {
-                    String url = null;
+                    UploadedImage image;
                     try {
-                        url = r2Service.uploadImageWithThumbnail(file, "reviews/" + review.getId());
+                        image = r2Service.uploadImageWithThumbnail(file, "reviews/" + review.getId());
                     } catch (IOException e) {
                         throw new ApiException(ErrorCode.R2_IO_ERROR);
                     }
-                    uploadedUrls.add(url);
+                    uploaded.add(image);
                     reviewImageRepository.save(ReviewImage.builder()
                             .review(review)
                             .origin(file.getOriginalFilename())
-                            .imageUrl(url)
+                            .imageUrl(image.key())
+                            .thumbnailUrl(image.thumbnailKey())
                             .build());
                 });
         }catch (Exception e) {
             // 오류 발생 시 업로드한 파일들 전부 삭제
-            uploadedUrls.forEach(url -> {
+            uploaded.forEach(image -> {
                 try {
-                    r2Service.deleteImageWithThumbnail(url);
+                    r2Service.deleteImage(image.key(), image.thumbnailKey());
                 } catch (Exception ex) {
-                    log.error("R2 롤백 삭제 실패: {}", url);
+                    log.error("R2 롤백 삭제 실패: {}", image.key());
                 }
             });
             throw new ApiException(ErrorCode.R2_IO_ERROR);
@@ -265,16 +272,19 @@ public class ReviewService {
         List<ReviewImage> images = reviewImageRepository.findAllById(imageIds).stream()
                 .filter(img -> img.getReview().getId().equals(review.getId()))
                 .toList();
-        List<String> urlsToDelete = images.stream().map(ReviewImage::getImageUrl).toList();
+        // 엔티티가 지워진 뒤에도 쓸 수 있도록 key 를 미리 복사해둔다
+        List<UploadedImage> keysToDelete = images.stream()
+                .map(img -> new UploadedImage(img.getImageUrl(), img.getThumbnailUrl()))
+                .toList();
         reviewImageRepository.deleteAll(images);
 
         // 트랜잭션이 커밋된 이후 R2 파일 삭제
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                urlsToDelete.forEach(url -> {
+                keysToDelete.forEach(image -> {
                     try {
-                        r2Service.deleteImageWithThumbnail(url);
+                        r2Service.deleteImage(image.key(), image.thumbnailKey());
                     } catch (Exception e) {
                         log.error("R2 파일 삭제가 실패했습니다. reviewId={}", review.getId());
                     }
