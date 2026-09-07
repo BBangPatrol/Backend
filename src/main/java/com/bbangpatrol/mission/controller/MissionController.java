@@ -2,6 +2,7 @@ package com.bbangpatrol.mission.controller;
 
 import com.bbangpatrol.common.util.ApiResponse;
 import com.bbangpatrol.mission.dto.MissionListResponse;
+import com.bbangpatrol.mission.dto.MissionMainResponse;
 import com.bbangpatrol.mission.dto.MissionRewardResponse;
 import com.bbangpatrol.mission.service.MissionProgressService;
 import com.bbangpatrol.mission.service.MissionService;
@@ -28,6 +29,15 @@ public class MissionController {
     ) {
         MissionListResponse list = missionService.getMissions(userId, filter, cursor, size);
         return ApiResponse.onSuccess(HttpStatus.OK, "요청이 성공적입니다.", list);
+    }
+
+    // 메인 화면용. 노출 개수가 4개로 고정이라 filter/cursor/size 를 받지 않는다
+    @GetMapping("/main")
+    public ApiResponse<MissionMainResponse> getMainMissions(
+            @AuthenticationPrincipal Long userId
+    ) {
+        MissionMainResponse main = missionService.getMainMissions(userId);
+        return ApiResponse.onSuccess(HttpStatus.OK, "요청이 성공적입니다.", main);
     }
 
     @PatchMapping("/{missionId}")
