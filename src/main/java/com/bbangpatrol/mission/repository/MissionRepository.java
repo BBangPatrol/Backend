@@ -56,6 +56,18 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
                     "AND mp.status IN :statuses")
     Page<Object[]> findByStatuses(Long userId, List<MissionStatus> statuses, Pageable pageable);
 
+    // 메인 화면용. 목록(filter=all)과 같은 정렬을 쓰되 상위 몇 개만 필요해
+    // count 쿼리가 함께 나가는 Page 대신 List 로 받는다
+    @Query("SELECT m, mp FROM Mission m LEFT JOIN MissionProgress mp " +
+            "ON mp.mission = m AND mp.user.id = :userId " +
+            "WHERE m.criteria <> MissionCriteria.NOT_SUPPORTED " +
+            "ORDER BY CASE " +
+            "WHEN mp.status = MissionStatus.not_received THEN 0 " +
+            "WHEN mp.status IS NULL OR mp.status = MissionStatus.in_progress THEN 1 " +
+            "WHEN mp.status = MissionStatus.completed THEN 2 " +
+            "ELSE 3 END, mp.updatedAt DESC NULLS LAST, m.id ASC")
+    List<Object[]> findMainMissions(Long userId, Pageable pageable);
+
     // 갱신 대상 미션. regions 에는 구역없음 + 행동이 일어난 지역을 넘긴다
     @Query("SELECT m FROM Mission m " +
             "WHERE m.missionType IN :types " +

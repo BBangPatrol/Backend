@@ -3,6 +3,7 @@ package com.bbangpatrol.mission.service;
 import com.bbangpatrol.common.dto.OffsetPageable;
 import com.bbangpatrol.common.dto.PageInfo;
 import com.bbangpatrol.mission.dto.MissionListResponse;
+import com.bbangpatrol.mission.dto.MissionMainResponse;
 import com.bbangpatrol.mission.dto.MissionResponse;
 import com.bbangpatrol.mission.entity.Mission;
 import com.bbangpatrol.mission.entity.MissionProgress;
@@ -10,6 +11,7 @@ import com.bbangpatrol.mission.entity.MissionStatus;
 import com.bbangpatrol.mission.repository.MissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,9 +22,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MissionService {
 
-    // 미션 메인은 size=5, 미션 목록은 size 생략
     private static final int DEFAULT_SIZE = 20;
     private static final int MAX_SIZE = 50;
+    // 메인 화면에 노출하는 미션 수. 화면이 고정 4칸이다
+    private static final int MAIN_SIZE = 4;
 
     private final MissionRepository missionRepository;
 
@@ -53,5 +56,19 @@ public class MissionService {
         Long nextCursor = hasNext ? consumed : null;
 
         return new MissionListResponse(missions, new PageInfo(missions.size(), hasNext, nextCursor));
+    }
+
+    /**
+     * 메인 화면용 미션. 목록의 filter=all 과 같은 정렬(보상 수령 가능 -> 진행 중 -> 완료 -> 실패)에서
+     * 상위 4개만 잘라 준다. 개수가 고정이라 페이징 파라미터를 받지 않는다.
+     */
+    @Transactional(readOnly = true)
+    public MissionMainResponse getMainMissions(Long userId) {
+        List<MissionResponse> missions =
+                missionRepository.findMainMissions(userId, PageRequest.of(0, MAIN_SIZE)).stream()
+                        .map(row -> MissionResponse.from((Mission) row[0], (MissionProgress) row[1]))
+                        .toList();
+
+        return new MissionMainResponse(missions);
     }
 }
