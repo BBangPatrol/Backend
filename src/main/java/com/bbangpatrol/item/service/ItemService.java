@@ -2,6 +2,7 @@ package com.bbangpatrol.item.service;
 
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
+import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.item.dto.DrawResultResponse;
 import com.bbangpatrol.item.dto.ItemListResponse;
 import com.bbangpatrol.item.dto.ItemResponse;
@@ -14,7 +15,6 @@ import com.bbangpatrol.point.service.PointService;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,7 +39,7 @@ public class ItemService {
     @Transactional
     public DrawResultResponse drawItem(Long userId) {
         User user = userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new UsernameNotFoundException("존재하지 않는 유저입니다."));
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         pointService.updatePoint(userId, ITEM_COST, false, "수집품 뽑기");
         

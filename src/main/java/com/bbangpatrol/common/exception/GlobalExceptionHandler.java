@@ -5,15 +5,20 @@ import com.bbangpatrol.common.util.code.BaseErrorCode;
 import com.bbangpatrol.common.util.code.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
+import org.springframework.util.StringUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.io.IOException;
 
@@ -103,6 +108,54 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(errorCode.getStatus())
                 .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage(), detail));
+    }
+
+    // 없는 주소. 상태는 404 로 나가지만 핸들러가 없으면 본문이 스프링 기본 형식이다
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException exception) {
+        ErrorCode errorCode = ErrorCode.NOT_FOUND_404;
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage()));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(HttpRequestMethodNotSupportedException exception) {
+        ErrorCode errorCode = ErrorCode.METHOD_NOT_ALLOWED_405;
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage()));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException exception) {
+        ErrorCode errorCode = ErrorCode.UNSUPPORTED_MEDIA_TYPE415;
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage()));
+    }
+
+    // 외부 API 호출부가 던지는 ResponseStatusException. 상태 코드는 그대로 두고 본문만 ApiResponse 로 맞춘다
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiResponse<Void>> handleResponseStatus(ResponseStatusException exception) {
+        ErrorCode errorCode = switch (exception.getStatusCode().value()) {
+            case 400 -> ErrorCode.BAD_REQUEST;
+            case 401 -> ErrorCode.UNAUTHORIZED_401;
+            case 403 -> ErrorCode.FORBIDDEN_403;
+            case 404 -> ErrorCode.NOT_FOUND_404;
+            case 502 -> ErrorCode.EXTERNAL_SERVER_ERROR_502;
+            default -> ErrorCode.INTERNAL_SERVER_ERROR_500;
+        };
+        // reason 은 우리가 직접 적은 문구라 그대로 내보내도 된다
+        String message = StringUtils.hasText(exception.getReason()) ? exception.getReason() : errorCode.getMessage();
+        log.warn("[ResponseStatusException] {} {}", exception.getStatusCode(), exception.getReason());
+
+        return ResponseEntity
+                .status(exception.getStatusCode())
+                .body(ApiResponse.onFailure(errorCode.getCode(), message));
     }
 
     @ExceptionHandler(DataAccessException.class)

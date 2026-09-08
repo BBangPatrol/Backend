@@ -8,7 +8,12 @@ import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.http.HttpMethod;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -101,5 +106,52 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody())
                 .extracting("errors")
                 .isEqualTo(new ErrorDetail("type", "필수 파라미터가 없습니다."));
+    }
+
+    @Test
+    void unmappedUrlIsFourOhFourInApiResponseShape() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleNoResourceFound(
+                new NoResourceFoundException(HttpMethod.GET, "/api/v1/nope"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).extracting("code").isEqualTo("COMMON404");
+    }
+
+    @Test
+    void wrongMethodIsFourOhFiveInApiResponseShape() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleMethodNotSupported(
+                new HttpRequestMethodNotSupportedException("DELETE"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+        assertThat(response.getBody()).extracting("code").isEqualTo("COMMON405");
+    }
+
+    @Test
+    void unsupportedMediaTypeIsFourFifteenInApiResponseShape() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleMediaTypeNotSupported(
+                new HttpMediaTypeNotSupportedException("application/xml"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+        assertThat(response.getBody()).extracting("code").isEqualTo("COMMON415");
+    }
+
+    @Test
+    void externalApiFailureKeepsStatusAndUsesApiResponseShape() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleResponseStatus(
+                new ResponseStatusException(HttpStatus.BAD_GATEWAY, "카카오 사용자 정보 조회에 실패했습니다."));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        assertThat(response.getBody())
+                .extracting("isSuccess", "code", "message")
+                .containsExactly(false, "COMMON502", "카카오 사용자 정보 조회에 실패했습니다.");
+    }
+
+    @Test
+    void externalApiFailureFallsBackToErrorCodeMessage() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleResponseStatus(
+                new ResponseStatusException(HttpStatus.BAD_REQUEST));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).extracting("code").isEqualTo("COMMON400");
     }
 }

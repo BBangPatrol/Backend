@@ -93,7 +93,7 @@ public class AuthServiceImpl implements AuthService {
         log.info("[AuthServiceImpl] 토큰 재발급 수행, 기존의 refresh token: {}", refreshToken);
 
         if(!jwtProvider.validateToken(refreshToken)) { // 유효하지 않은 토큰일 경우
-            throw new RuntimeException();
+            throw new ApiException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         // 토큰에서 userId 추출
@@ -101,7 +101,7 @@ public class AuthServiceImpl implements AuthService {
 
         if (!refreshTokenRepository.isValid(userId, refreshToken)) { // 기존 refresh token과 userId가 일치하지 않으면 에러
             refreshTokenRepository.delete(userId);
-            throw new RuntimeException();
+            throw new ApiException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         String newAccess = jwtProvider.createAccessToken(userId);
