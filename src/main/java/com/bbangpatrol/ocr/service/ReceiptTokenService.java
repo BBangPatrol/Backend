@@ -1,5 +1,7 @@
 package com.bbangpatrol.ocr.service;
 
+import com.bbangpatrol.common.exception.ApiException;
+import com.bbangpatrol.common.util.code.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -46,7 +48,7 @@ public class ReceiptTokenService {
                 .getAndDelete(key);
 
         if (receiptNum == null) {
-            throw new IllegalArgumentException("유효하지 않거나 만료된 인증 토큰입니다.");
+            throw new ApiException(ErrorCode.INVALID_RECEIPT_TOKEN);
         }
 
         return receiptNum;

@@ -6,8 +6,13 @@ import com.bbangpatrol.common.util.code.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.io.IOException;
@@ -29,9 +34,51 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    // 전용 핸들러가 없으면 원인인 Jackson 예외(= IOException)를 handleIOException 이 잡아 200 이 나간다
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadableRequest(HttpMessageNotReadableException exception) {
+        ErrorCode errorCode = ErrorCode.BAD_REQUEST;
+        // Jackson 메시지에는 내부 클래스명이 들어 있어 그대로 내보내지 않는다
+        log.warn("요청 본문을 읽을 수 없음: {}", exception.getMessage());
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage()));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingParameter(MissingServletRequestParameterException exception) {
+        ErrorCode errorCode = ErrorCode.BAD_REQUEST;
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(
+                        errorCode.getCode(),
+                        errorCode.getMessage(),
+                        new ErrorDetail(exception.getParameterName(), "필수 파라미터가 없습니다.")));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
+        ErrorCode errorCode = ErrorCode.BAD_REQUEST;
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(
+                        errorCode.getCode(),
+                        errorCode.getMessage(),
+                        new ErrorDetail(exception.getName(), "값의 형식이 올바르지 않습니다.")));
+    }
+
+    // 여기까지 온 IOException 은 R2 업로드 같은 서버 쪽 실패다
     @ExceptionHandler(IOException.class)
-    public ApiResponse handleIOException(IOException exception) {
-        return ApiResponse.onFailure("IOEXCEPTION", exception.getMessage());
+    public ResponseEntity<ApiResponse<Void>> handleIOException(IOException exception) {
+        ErrorCode errorCode = ErrorCode.R2_IO_ERROR;
+        log.error("[IO] 처리되지 않은 입출력 예외", exception);
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage()));
     }
 
     // 한도 초과 업로드는 핸들러가 없으면 500 이 나간다. 사용자가 원인을 알 수 있게 413 으로 내려준다
@@ -43,6 +90,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(errorCode.getStatus())
                 .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage()));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException exception) {
+        ErrorCode errorCode = ErrorCode.BAD_REQUEST;
+        FieldError fieldError = exception.getBindingResult().getFieldError();
+        ErrorDetail detail = fieldError == null
+                ? null
+                : new ErrorDetail(fieldError.getField(), fieldError.getDefaultMessage());
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage(), detail));
     }
 
     @ExceptionHandler(DataAccessException.class)
