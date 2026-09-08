@@ -9,11 +9,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.io.IOException;
 
@@ -103,6 +106,34 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(errorCode.getStatus())
                 .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage(), detail));
+    }
+
+    // 없는 주소. 상태는 404 로 나가지만 핸들러가 없으면 본문이 스프링 기본 형식이다
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException exception) {
+        ErrorCode errorCode = ErrorCode.NOT_FOUND_404;
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage()));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(HttpRequestMethodNotSupportedException exception) {
+        ErrorCode errorCode = ErrorCode.METHOD_NOT_ALLOWED_405;
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage()));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException exception) {
+        ErrorCode errorCode = ErrorCode.UNSUPPORTED_MEDIA_TYPE415;
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage()));
     }
 
     @ExceptionHandler(DataAccessException.class)
