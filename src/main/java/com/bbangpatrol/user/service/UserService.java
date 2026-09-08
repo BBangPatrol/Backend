@@ -1,7 +1,7 @@
 package com.bbangpatrol.user.service;
 
 import com.bbangpatrol.bakery.entity.Bakery;
-import com.bbangpatrol.common.dto.PageInfo;
+import com.bbangpatrol.common.dto.OffsetPageInfo;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.util.code.ErrorCode;
@@ -18,11 +18,11 @@ import com.bbangpatrol.user.dto.UserRequestDTO;
 import com.bbangpatrol.user.dto.UserResponseDTO;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
-import com.bbangpatrol.visit.entity.Visit;
-import com.bbangpatrol.visit.repository.VisitRepository;
+import com.bbangpatrol.visit.repository.VisitDetailRepository;
 import com.bbangpatrol.mission.repository.MissionProgressRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,8 +32,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Objects;
+import java.time.LocalDate;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -46,16 +46,13 @@ public class UserService {
     private final ReviewLikeRepository reviewLikeRepository;
     private final ItemRepository itemRepository;
     private final UserItemRepository userItemRepository;
-    private final VisitRepository visitRepository;
+    private final VisitDetailRepository visitDetailRepository;
     private final MissionProgressRepository missionProgressRepository;
     private final R2Service r2Service;
 
     private static final List<String> ALLOWED_PROFILE_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/webp");
-    // 프로필 이미지는 아바타로만 쓰이므로 400px 한 장이면 충분하다 (리뷰 목록에 20개가 함께 뜬다)
     private static final int PROFILE_IMAGE_MAX_DIMENSION = 400;
     private static final float PROFILE_IMAGE_QUALITY = 0.8f;
-    private static final int POINT_HISTORY_PAGE_SIZE = 20;
-    private static final int REVIEW_HISTORY_PAGE_SIZE = 20;
     private static final String USERS_DIR = "users";
 
     @Transactional
@@ -65,8 +62,6 @@ public class UserService {
         Long total = itemRepository.count();
         Long collected = userItemRepository.countByUser(user);
         List<UserItem> userItemList = userItemRepository.findTop8ByUserOrderByAcquiredAtDescIdDesc(user);
-
-        List<Visit> visitList = visitRepository.findByUser(user);
 
         Long reviewCnt = reviewRepository.countByUserAndDeletedAtIsNull(user);
         Long reviewLikes = reviewLikeRepository.countLikes(user);
@@ -81,15 +76,8 @@ public class UserService {
                         .items(userItemList.stream().map(ui -> UserResponseDTO.CollectionItem.builder()
                                 .collectibleId(ui.getItem().getId())
                                 .name(ui.getItem().getName())
-                                .rank(ui.getItem().getRank())
+                                .rank(ui.getItem().getRank().toString())
                                 .image(r2Service.getPublicUrl(ui.getItem().getImageUrl())).build()).toList()).build())
-                .map(visitList.stream().map(visit -> {
-                    Bakery bakery = visit.getBakery();
-
-                    return UserResponseDTO.Coordinate.builder()
-                            .lat(bakery.getLat())
-                            .lon(bakery.getLng()).build();
-                }).toList())
                 .point(user.getPointBalance())
                 .reviews(UserResponseDTO.ReviewStat.builder()
                         .reviewCount(reviewCnt)
@@ -99,6 +87,7 @@ public class UserService {
                         .title(progress.getMission().getTitle())
                         .count(progress.getCount())
                         .targetCount(progress.getMission().getTargetCount())
+                        .status(progress.getStatus().toString())
                         .build()).toList())
                 .build();
     }
@@ -151,15 +140,14 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public UserResponseDTO.PointHistoryDTO getPointHistory(Long userId, Long cursor) {
+    public UserResponseDTO.PointHistoryDTO getPointHistory(Long userId, int page) {
+        // PageRequest.of 가 음수에 IllegalArgumentException 을 던져 500 이 된다
+        if (page < 0) throw new ApiException(ErrorCode.BAD_REQUEST);
+
         getUser(userId);
 
-        List<Point> points = pointRepository.findPointHistory(userId, cursor, PageRequest.of(0, POINT_HISTORY_PAGE_SIZE + 1));
-
-        boolean hasNext = points.size() > POINT_HISTORY_PAGE_SIZE;
-        List<Point> page = hasNext ? points.subList(0, POINT_HISTORY_PAGE_SIZE) : points;
-
-        List<UserResponseDTO.PointDTO> pointHistory = page.stream()
+        Page<Point> points = pointRepository.findPointHistory(userId, PageRequest.of(page, 5));
+        List<UserResponseDTO.PointDTO> pointHistory = points.getContent().stream()
                 .map(point -> UserResponseDTO.PointDTO.builder()
                         .type(point.getType().name())
                         .content(point.getContent())
@@ -168,24 +156,25 @@ public class UserService {
                         .build())
                 .toList();
 
-        Long nextCursor = hasNext ? page.get(page.size() - 1).getId() : null;
-
         return UserResponseDTO.PointHistoryDTO.builder()
                 .point_history(pointHistory)
-                .pageInfo(new PageInfo(pointHistory.size(), hasNext, nextCursor))
+                .pageInfo(new OffsetPageInfo(
+                        points.getNumber(),
+                        points.getSize(),
+                        points.getTotalElements(),
+                        points.getTotalPages(),
+                        points.hasNext()))
                 .build();
     }
 
     @Transactional(readOnly = true)
-    public UserResponseDTO.ReviewHistoryDTO getMyReviews(Long userId, Long cursor) {
+    public UserResponseDTO.ReviewHistoryDTO getMyReviews(Long userId, int page) {
+        if (page < 0) throw new ApiException(ErrorCode.BAD_REQUEST);
+
         User user = getUser(userId);
 
-        List<Review> reviews = reviewRepository.findMyReviews(userId, cursor, PageRequest.of(0, REVIEW_HISTORY_PAGE_SIZE + 1));
-
-        boolean hasNext = reviews.size() > REVIEW_HISTORY_PAGE_SIZE;
-        List<Review> page = hasNext ? reviews.subList(0, REVIEW_HISTORY_PAGE_SIZE) : reviews;
-
-        List<UserResponseDTO.ReviewDTO> reviewHistory = page.stream()
+        Page<Review> reviews = reviewRepository.findMyReviews(userId, PageRequest.of(page, 5));
+        List<UserResponseDTO.ReviewDTO> reviewHistory = reviews.getContent().stream()
                 .map(review -> UserResponseDTO.ReviewDTO.builder()
                         .bakeryId(review.getBakery().getId())
                         .bakeryName(review.getBakery().getName())
@@ -196,32 +185,44 @@ public class UserService {
                         .build())
                 .toList();
 
-        Long nextCursor = hasNext ? page.get(page.size() - 1).getId() : null;
-
         return UserResponseDTO.ReviewHistoryDTO.builder()
                 .reviews(reviewHistory)
-                .reviewCount(reviewRepository.countByUserAndDeletedAtIsNull(user))
+                .reviewCount(reviews.getTotalElements())
                 .reviewLikes(reviewRepository.sumLikeCountByUser(user))
-                .pageInfo(new PageInfo(reviewHistory.size(), hasNext, nextCursor))
+                .pageInfo(new OffsetPageInfo(
+                        reviews.getNumber(),
+                        reviews.getSize(),
+                        reviews.getTotalElements(),
+                        reviews.getTotalPages(),
+                        reviews.hasNext()))
                 .build();
     }
 
     @Transactional(readOnly = true)
     public UserResponseDTO.VisitedBakeryListDTO getBakeryList(Long userId) {
-        User user = getUser(userId);
+        getUser(userId);
 
-        List<UserResponseDTO.Coordinate> visits = visitRepository.findByUser(user).stream()
-                .map(Visit::getBakery)
-                .filter(Objects::nonNull)
-                .map(bakery -> UserResponseDTO.Coordinate.builder()
-                        .lat(bakery.getLat())
-                        .lon(bakery.getLng())
-                        .build())
+        List<UserResponseDTO.VisitBakeryDTO> data = visitDetailRepository.findHistoryByUserId(userId).stream()
+                .map(visitDetail -> {
+                    Bakery bakery = visitDetail.getVisit().getBakery();
+                    // 링크가 남은 삭제 리뷰가 새어 나가지 않게 한 번 더 본다
+                    Review review = visitDetail.getReview();
+                    if (review != null && review.getDeletedAt() != null) review = null;
+
+                    LocalDate visitedAt = visitDetail.getVisitedAt();
+
+                    return UserResponseDTO.VisitBakeryDTO.builder()
+                            .storeId(bakery.getId())
+                            .storeName(bakery.getName())
+                            .visitDate(visitedAt == null ? null : visitedAt.toString())
+                            .reviewId(review == null ? null : review.getId())
+                            .rating(review == null ? null : review.getRating())
+                            .review(review == null ? null : review.getContent())
+                            .build();
+                })
                 .toList();
 
-        return UserResponseDTO.VisitedBakeryListDTO.builder()
-                .visits(visits)
-                .build();
+        return new UserResponseDTO.VisitedBakeryListDTO(data);
     }
 
     private User getUser(Long userId) {

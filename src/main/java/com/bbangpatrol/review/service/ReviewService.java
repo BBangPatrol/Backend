@@ -2,7 +2,7 @@ package com.bbangpatrol.review.service;
 
 import com.bbangpatrol.bakery.entity.Bakery;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
-import com.bbangpatrol.common.dto.PageInfo;
+import com.bbangpatrol.common.dto.OffsetPageInfo;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.service.UploadedImage;
@@ -16,8 +16,11 @@ import com.bbangpatrol.review.entity.*;
 import com.bbangpatrol.review.repository.*;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
+import com.bbangpatrol.visit.entity.VisitDetail;
+import com.bbangpatrol.visit.repository.VisitDetailRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +34,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,6 +51,7 @@ public class ReviewService {
     private final ReviewKeywordRepository reviewKeywordRepository;
     private final R2Service r2Service;
     private final ReviewImageRepository reviewImageRepository;
+    private final VisitDetailRepository visitDetailRepository;
     private final MissionEvaluator missionEvaluator;
 
 
@@ -60,6 +63,13 @@ public class ReviewService {
         Bakery bakery = bakeryRepository.findById(storeId)
                 .orElseThrow(()-> new ApiException(ErrorCode.BAKERY_NOT_FOUND));
 
+        // 리뷰는 영수증 인증한 방문 한 건당 하나. 아직 리뷰를 안 쓴 가장 최근 방문에 붙인다
+        VisitDetail visitDetail = visitDetailRepository
+                .findReviewable(userId, storeId, PageRequest.of(0, 1))
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new ApiException(ErrorCode.VISIT_NOT_VERIFIED));
+
         Review review = reviewRepository.save(Review.builder()
                 .rating(request.rating() != null ? request.rating() : Integer.valueOf(0))
                 .content(request.content())
@@ -67,6 +77,7 @@ public class ReviewService {
                 .createdAt(LocalDateTime.now())
                 .user(user)
                 .bakery(bakery)
+                .visitDetail(visitDetail)
                 .build());
         
         // 키워드가 있는 경우만 처리
@@ -85,14 +96,13 @@ public class ReviewService {
         return review;
     }
 
-    public ReviewListResponse getReview(long storeId, Long cursor) {
-        // 1개를 더 가져와서 hasNext를 판별
-        List<Review> reviews = reviewRepository
-                .findAllByBakeryWithCursor(storeId, cursor, PageRequest.of(0, SIZE + 1));
+    public ReviewListResponse getReview(long storeId, int page) {
+        // PageRequest.of 가 음수에 IllegalArgumentException 을 던져 500 이 된다
+        if (page < 0) throw new ApiException(ErrorCode.BAD_REQUEST);
 
-        boolean hasNext = reviews.size() > SIZE;
-        List<Review> content = hasNext ? reviews.subList(0, SIZE) : reviews;
-        
+        Page<Review> reviews = reviewRepository.findPageByBakeryId(storeId, PageRequest.of(page, SIZE));
+        List<Review> content = reviews.getContent();
+
         // 리뷰 아이디만 따로 모으기 => 리뷰 이미지 조회, 리뷰 키워드 조회
         List<Long> reviewIds = content.stream().map(Review::getId).toList();
 
@@ -146,18 +156,24 @@ public class ReviewService {
                     review.getCreatedAt()
                 )).toList();
 
-        Long nextCursor = hasNext ? content.get(content.size() - 1).getId() : null;
-        PageInfo pageInfo = new PageInfo(content.size(), hasNext, nextCursor);
-        long totalReviewCount = reviewRepository.countByBakery_IdAndDeletedAtIsNull(storeId);
+        OffsetPageInfo pageInfo = new OffsetPageInfo(
+                reviews.getNumber(),
+                reviews.getSize(),
+                reviews.getTotalElements(),
+                reviews.getTotalPages(),
+                reviews.hasNext());
 
-        return new ReviewListResponse(reviewResponses, totalReviewCount, pageInfo);
+        return new ReviewListResponse(reviewResponses, reviews.getTotalElements(), pageInfo);
     }
 
     @Transactional
     public Review updateReview(long userId, long reviewId, ReviewUpdatedRequest request) {
         Review originalReview = reviewRepository.findById(reviewId).orElseThrow(
                 () -> new ApiException(ErrorCode.REVIEW_NOT_FOUND));
-        
+
+        // 아래 save 는 merge 라 deletedAt 이 null 로 덮인다. 막지 않으면 삭제한 리뷰가 되살아난다
+        if (originalReview.getDeletedAt() != null) throw new ApiException(ErrorCode.REVIEW_NOT_FOUND);
+
         // 작성자 아이디와 요청한 아이디가 다른 경우
         if (userId != originalReview.getUser().getId()) throw new ApiException(ErrorCode.USER_UNAUTHORIZE);
 
@@ -169,6 +185,8 @@ public class ReviewService {
                 .createdAt(originalReview.getCreatedAt())
                 .user(originalReview.getUser())
                 .bakery(originalReview.getBakery())
+                // merge 라 빠뜨리면 연결이 끊긴다
+                .visitDetail(originalReview.getVisitDetail())
                 .build());
 
         // 추가할 키워드가 있는 경우

@@ -78,7 +78,7 @@ class BakeryServiceTest {
                 .containsExactly(1L, 2L);
         assertThat(response.result().get(0).visitCnt()).isEqualTo(12L);
         assertThat(response.result().get(0).likes()).isTrue();
-        assertThat(response.pageInfo().hasNext()).isFalse();
+        assertThat(response.cursorPageInfo().hasNext()).isFalse();
     }
 
     @Test
@@ -108,8 +108,8 @@ class BakeryServiceTest {
                 null, new BakerySearchRequest("rating", null, null, null, null));
 
         assertThat(response.result()).hasSize(20);
-        assertThat(response.pageInfo().hasNext()).isTrue();
-        assertThat(response.pageInfo().nextCursor()).isEqualTo(20L);
+        assertThat(response.cursorPageInfo().hasNext()).isTrue();
+        assertThat(response.cursorPageInfo().nextCursor()).isEqualTo(20L);
     }
 
     @Test

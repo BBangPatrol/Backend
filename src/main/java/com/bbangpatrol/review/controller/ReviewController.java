@@ -24,9 +24,9 @@ public class ReviewController {
     @GetMapping
     public ResponseEntity<ApiResponse> getReviews(
             @PathVariable long storeId,
-            @RequestParam(required = false) Long cursor
+            @RequestParam(required = false, defaultValue = "0") int page
     ) {
-        ReviewListResponse reviews = reviewService.getReview(storeId, cursor);
+        ReviewListResponse reviews = reviewService.getReview(storeId, page);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.onSuccess(
                 HttpStatus.OK, "요청이 성공적입니다.", reviews));
     }

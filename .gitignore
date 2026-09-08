@@ -53,3 +53,6 @@ application-local.properties
 docker-compose.local.yml
 .idea
 .claude
+
+# 구현 메모 (커밋하지 않음)
+IMPLEMENTATION-NOTES.md

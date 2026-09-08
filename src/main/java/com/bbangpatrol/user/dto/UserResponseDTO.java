@@ -1,6 +1,7 @@
 package com.bbangpatrol.user.dto;
 
-import com.bbangpatrol.common.dto.PageInfo;
+import com.bbangpatrol.bakery.dto.HotBakeryResponse;
+import com.bbangpatrol.common.dto.OffsetPageInfo;
 import com.bbangpatrol.item.entity.ItemRank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,7 +20,6 @@ public class UserResponseDTO {
     public static class MyPageDTO {
         String nickname;
         CollectionBook collectionBooks;
-        List<Coordinate> map;
         Integer point;
         ReviewStat reviews;
         List<MissionDTO> missions;
@@ -42,17 +42,8 @@ public class UserResponseDTO {
     public static class CollectionItem {
         Long collectibleId;
         String name;
-        ItemRank rank;
+        String rank;
         String image;
-    }
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class Coordinate {
-        BigDecimal lat;
-        BigDecimal lon;
     }
 
     @Data
@@ -73,6 +64,7 @@ public class UserResponseDTO {
         String title;
         Integer count;
         Integer targetCount;
+        String status;
     }
 
     @Data
@@ -89,7 +81,7 @@ public class UserResponseDTO {
     @AllArgsConstructor
     public static class PointHistoryDTO {
         List<PointDTO> point_history;
-        PageInfo pageInfo;
+        OffsetPageInfo pageInfo;
     }
 
     @Data
@@ -111,7 +103,7 @@ public class UserResponseDTO {
         List<ReviewDTO> reviews;
         Long reviewCount;
         Long reviewLikes;
-        PageInfo pageInfo;
+        OffsetPageInfo pageInfo;
     }
 
     @Data
@@ -132,6 +124,19 @@ public class UserResponseDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class VisitedBakeryListDTO {
-        List<Coordinate> visits;
+        List<VisitBakeryDTO> visits;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class VisitBakeryDTO {
+        Long storeId;
+        String storeName;
+        String visitDate;
+        Long reviewId;
+        Integer rating;
+        String review;
     }
 }

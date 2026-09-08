@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface VisitRepository extends JpaRepository<Visit, Long> {
-    List<Visit> findByUser(User user);
 
     @Query("""
             select v.bakery.id, coalesce(sum(v.count), 0)

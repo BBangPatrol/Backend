@@ -1,0 +1,258 @@
+package com.bbangpatrol.review.service;
+
+import com.bbangpatrol.bakery.entity.Bakery;
+import com.bbangpatrol.bakery.repository.BakeryRepository;
+import com.bbangpatrol.common.exception.ApiException;
+import com.bbangpatrol.common.service.R2Service;
+import com.bbangpatrol.common.util.code.ErrorCode;
+import com.bbangpatrol.mission.service.MissionEvaluator;
+import com.bbangpatrol.review.dto.ReviewCreatedRequest;
+import com.bbangpatrol.review.dto.ReviewListResponse;
+import com.bbangpatrol.review.dto.ReviewUpdatedRequest;
+import com.bbangpatrol.review.entity.Review;
+import com.bbangpatrol.review.repository.KeywordRepository;
+import com.bbangpatrol.review.repository.ReviewImageRepository;
+import com.bbangpatrol.review.repository.ReviewKeywordRepository;
+import com.bbangpatrol.review.repository.ReviewLikeRepository;
+import com.bbangpatrol.review.repository.ReviewRepository;
+import com.bbangpatrol.user.entity.User;
+import com.bbangpatrol.user.repository.UserRepository;
+import com.bbangpatrol.visit.entity.Visit;
+import com.bbangpatrol.visit.entity.VisitDetail;
+import com.bbangpatrol.visit.repository.VisitDetailRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.LongStream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+/**
+ * 리뷰는 영수증 인증한 방문 한 건에 하나씩만 달린다. 그 규칙과, 가게 리뷰 목록의 오프셋 페이징을 검증한다.
+ * findReviewable 쿼리 자체(소프트 삭제된 리뷰를 비운 것으로 볼지 등)는 DB 가 있어야 확인할 수 있어
+ * 여기서는 서비스가 그 쿼리에 무엇을 넘기고 결과를 어떻게 쓰는지까지만 본다.
+ */
+@ExtendWith(MockitoExtension.class)
+class ReviewServiceTest {
+
+    private static final long USER_ID = 7L;
+    private static final long STORE_ID = 3L;
+
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private BakeryRepository bakeryRepository;
+    @Mock
+    private ReviewRepository reviewRepository;
+    @Mock
+    private KeywordRepository keywordRepository;
+    @Mock
+    private ReviewLikeRepository reviewLikeRepository;
+    @Mock
+    private ReviewKeywordRepository reviewKeywordRepository;
+    @Mock
+    private R2Service r2Service;
+    @Mock
+    private ReviewImageRepository reviewImageRepository;
+    @Mock
+    private VisitDetailRepository visitDetailRepository;
+    @Mock
+    private MissionEvaluator missionEvaluator;
+
+    @InjectMocks
+    private ReviewService reviewService;
+
+    @Test
+    @DisplayName("영수증 인증한 방문이 없으면 리뷰를 쓸 수 없다")
+    void rejectsReviewWithoutVerifiedVisit() {
+        when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
+        when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
+        when(visitDetailRepository.findReviewable(eq(USER_ID), eq(STORE_ID), any(Pageable.class)))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> reviewService.createReview(USER_ID, STORE_ID, request()))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VISIT_NOT_VERIFIED);
+
+        // 방문 기록이 없으면 리뷰 행 자체가 만들어지면 안 된다
+        verify(reviewRepository, never()).save(any());
+        verify(missionEvaluator, never()).onReviewCreated(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("리뷰를 쓰면 아직 리뷰가 없는 방문 기록에 연결된다")
+    void linksReviewToReviewableVisitDetail() {
+        VisitDetail visitDetail = visitDetail();
+
+        when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
+        when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
+        when(visitDetailRepository.findReviewable(eq(USER_ID), eq(STORE_ID), any(Pageable.class)))
+                .thenReturn(List.of(visitDetail));
+        when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        reviewService.createReview(USER_ID, STORE_ID, request());
+
+        ArgumentCaptor<Review> captor = ArgumentCaptor.forClass(Review.class);
+        verify(reviewRepository).save(captor.capture());
+        assertThat(captor.getValue().getVisitDetail()).isSameAs(visitDetail);
+    }
+
+    @Test
+    @DisplayName("방문 기록은 가장 최근 한 건만 조회한다")
+    void looksUpOnlyTheLatestReviewableVisit() {
+        when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
+        when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
+        when(visitDetailRepository.findReviewable(eq(USER_ID), eq(STORE_ID), any(Pageable.class)))
+                .thenReturn(List.of(visitDetail()));
+        when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        reviewService.createReview(USER_ID, STORE_ID, request());
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(visitDetailRepository).findReviewable(eq(USER_ID), eq(STORE_ID), captor.capture());
+        assertThat(captor.getValue().getPageSize()).isEqualTo(1);
+        assertThat(captor.getValue().getPageNumber()).isZero();
+    }
+
+    @Test
+    @DisplayName("리뷰를 삭제하면 방문 기록 연결이 풀려 같은 방문에 다시 쓸 수 있다")
+    void softDeleteReleasesVisitDetail() {
+        Review review = Review.builder()
+                .id(11L)
+                .rating(5)
+                .likeCount(0)
+                .createdAt(LocalDateTime.now())
+                .user(user())
+                .bakery(bakery())
+                .visitDetail(visitDetail())
+                .build();
+        when(reviewRepository.findById(11L)).thenReturn(Optional.of(review));
+
+        reviewService.deleteReview(USER_ID, 11L);
+
+        assertThat(review.getDeletedAt()).isNotNull();
+        // UNIQUE 제약이 걸린 컬럼이라 비워 두지 않으면 그 방문에는 영영 다시 못 쓴다
+        assertThat(review.getVisitDetail()).isNull();
+    }
+
+    @Test
+    @DisplayName("삭제된 리뷰는 수정으로 되살릴 수 없다")
+    void cannotResurrectDeletedReviewByUpdating() {
+        Review deleted = Review.builder()
+                .id(11L)
+                .rating(5)
+                .likeCount(0)
+                .createdAt(LocalDateTime.now())
+                .deletedAt(LocalDateTime.now().minusDays(1))
+                .user(user())
+                .bakery(bakery())
+                .build();
+        when(reviewRepository.findById(11L)).thenReturn(Optional.of(deleted));
+
+        assertThatThrownBy(() -> reviewService.updateReview(
+                USER_ID, 11L, new ReviewUpdatedRequest(3, "되살리기", null, null, null, null)))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REVIEW_NOT_FOUND);
+
+        // merge 로 deletedAt 이 null 이 되면 인증 한 번에 살아 있는 리뷰가 둘이 될 수 있다
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("페이지 번호가 음수면 500 이 아니라 400 이다")
+    void rejectsNegativePage() {
+        assertThatThrownBy(() -> reviewService.getReview(STORE_ID, -1))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BAD_REQUEST);
+
+        verify(reviewRepository, never()).findPageByBakeryId(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("가게 리뷰 목록은 요청한 페이지와 전체 개수를 함께 내려준다")
+    void returnsOffsetPageInfo() {
+        List<Review> content = LongStream.rangeClosed(1, 20).mapToObj(this::reviewOf).toList();
+        Page<Review> page = new PageImpl<>(content, PageRequest.of(1, 20), 45);
+        when(reviewRepository.findPageByBakeryId(eq(STORE_ID), any(Pageable.class))).thenReturn(page);
+        when(reviewImageRepository.findAllByReviewIdIn(any())).thenReturn(List.of());
+        when(reviewKeywordRepository.findAllByReviewIdIn(any())).thenReturn(List.of());
+
+        ReviewListResponse response = reviewService.getReview(STORE_ID, 1);
+
+        assertThat(response.reviews()).hasSize(20);
+        assertThat(response.count()).isEqualTo(45);
+        assertThat(response.pageInfo().page()).isEqualTo(1);
+        assertThat(response.pageInfo().size()).isEqualTo(20);
+        assertThat(response.pageInfo().totalElements()).isEqualTo(45);
+        assertThat(response.pageInfo().totalPages()).isEqualTo(3);
+        assertThat(response.pageInfo().hasNext()).isTrue();
+    }
+
+    @Test
+    @DisplayName("마지막 페이지에서는 hasNext 가 false 다")
+    void lastPageHasNoNext() {
+        Page<Review> page = new PageImpl<>(List.of(reviewOf(1L)), PageRequest.of(2, 20), 41);
+        when(reviewRepository.findPageByBakeryId(eq(STORE_ID), any(Pageable.class))).thenReturn(page);
+        when(reviewImageRepository.findAllByReviewIdIn(any())).thenReturn(List.of());
+        when(reviewKeywordRepository.findAllByReviewIdIn(any())).thenReturn(List.of());
+
+        ReviewListResponse response = reviewService.getReview(STORE_ID, 2);
+
+        assertThat(response.pageInfo().hasNext()).isFalse();
+        assertThat(response.pageInfo().totalPages()).isEqualTo(3);
+    }
+
+    private ReviewCreatedRequest request() {
+        return new ReviewCreatedRequest(5, "소금빵이 진짜 맛있어요", null, null);
+    }
+
+    private User user() {
+        return User.builder().id(USER_ID).name("빵순이").build();
+    }
+
+    private Bakery bakery() {
+        return Bakery.builder().id(STORE_ID).name("성심당").build();
+    }
+
+    private VisitDetail visitDetail() {
+        return VisitDetail.builder()
+                .id(99L)
+                .totalAmount(12000)
+                .visitedAt(LocalDate.of(2026, 9, 5))
+                .createdAt(LocalDateTime.now())
+                .visit(Visit.create(user(), bakery()))
+                .build();
+    }
+
+    private Review reviewOf(long id) {
+        return Review.builder()
+                .id(id)
+                .rating(4)
+                .content("맛있어요")
+                .likeCount(0)
+                .createdAt(LocalDateTime.now())
+                .user(user())
+                .bakery(bakery())
+                .build();
+    }
+}
