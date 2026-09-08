@@ -1,5 +1,8 @@
 services:
   backend:
+    # CI 가 러너에서 빌드해 GHCR 로 올린 이미지를 받아 쓴다.
+    # build 는 로컬에서 직접 띄울 때만 쓰인다 (docker compose up --build)
+    image: ghcr.io/bbangpatrol/backend:latest
     build: .
     container_name: backend
     restart: unless-stopped
