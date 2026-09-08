@@ -18,9 +18,7 @@ import com.bbangpatrol.user.dto.UserRequestDTO;
 import com.bbangpatrol.user.dto.UserResponseDTO;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
-import com.bbangpatrol.visit.entity.Visit;
-import com.bbangpatrol.visit.entity.VisitDetail;
-import com.bbangpatrol.visit.repository.VisitRepository;
+import com.bbangpatrol.visit.repository.VisitDetailRepository;
 import com.bbangpatrol.mission.repository.MissionProgressRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +32,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.*;
 
 @Service
@@ -47,7 +46,7 @@ public class UserService {
     private final ReviewLikeRepository reviewLikeRepository;
     private final ItemRepository itemRepository;
     private final UserItemRepository userItemRepository;
-    private final VisitRepository visitRepository;
+    private final VisitDetailRepository visitDetailRepository;
     private final MissionProgressRepository missionProgressRepository;
     private final R2Service r2Service;
 
@@ -142,6 +141,9 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserResponseDTO.PointHistoryDTO getPointHistory(Long userId, int page) {
+        // PageRequest.of 가 음수에 IllegalArgumentException 을 던져 500 이 된다
+        if (page < 0) throw new ApiException(ErrorCode.BAD_REQUEST);
+
         getUser(userId);
 
         Page<Point> points = pointRepository.findPointHistory(userId, PageRequest.of(page, 5));
@@ -167,6 +169,8 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserResponseDTO.ReviewHistoryDTO getMyReviews(Long userId, int page) {
+        if (page < 0) throw new ApiException(ErrorCode.BAD_REQUEST);
+
         User user = getUser(userId);
 
         Page<Review> reviews = reviewRepository.findMyReviews(userId, PageRequest.of(page, 5));
@@ -196,31 +200,27 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserResponseDTO.VisitedBakeryListDTO getBakeryList(Long userId) {
-        User user = getUser(userId);
+        getUser(userId);
 
-        Map<Bakery, List<VisitDetail>> visitDetails = new HashMap<>();
-        List<Visit> visits = visitRepository.findByUser(user);
-        for(Visit v : visits) visitDetails.put(v.getBakery(), v.getVisitDetails());
+        List<UserResponseDTO.VisitBakeryDTO> data = visitDetailRepository.findHistoryByUserId(userId).stream()
+                .map(visitDetail -> {
+                    Bakery bakery = visitDetail.getVisit().getBakery();
+                    // 링크가 남은 삭제 리뷰가 새어 나가지 않게 한 번 더 본다
+                    Review review = visitDetail.getReview();
+                    if (review != null && review.getDeletedAt() != null) review = null;
 
-        List<UserResponseDTO.VisitBakeryDTO> data = new ArrayList<>();
-        for (Map.Entry<Bakery, List<VisitDetail>> entry : visitDetails.entrySet()) {
-            Bakery bakery = entry.getKey();
-            List<VisitDetail> details = entry.getValue();
+                    LocalDate visitedAt = visitDetail.getVisitedAt();
 
-            for (VisitDetail visitDetail : details) {
-                Review review = visitDetail.getReview();
-
-                data.add(UserResponseDTO.VisitBakeryDTO.builder()
-                        .storeId(bakery.getId())
-                        .storeName(bakery.getName())
-                        .visitDate(visitDetail.getVisitedAt().toString())
-                        .reviewId(review == null ? null : review.getId())
-                        .rating(review == null ? null : review.getRating())
-                        .review(review == null ? null : review.getContent())
-                        .build());
-            }
-        }
-        data.sort(Comparator.comparing(UserResponseDTO.VisitBakeryDTO::getVisitDate, Comparator.reverseOrder()));
+                    return UserResponseDTO.VisitBakeryDTO.builder()
+                            .storeId(bakery.getId())
+                            .storeName(bakery.getName())
+                            .visitDate(visitedAt == null ? null : visitedAt.toString())
+                            .reviewId(review == null ? null : review.getId())
+                            .rating(review == null ? null : review.getRating())
+                            .review(review == null ? null : review.getContent())
+                            .build();
+                })
+                .toList();
 
         return new UserResponseDTO.VisitedBakeryListDTO(data);
     }
