@@ -34,6 +34,7 @@ public enum ErrorCode implements BaseErrorCode{
 
     // 빵집 관련 에러들
     RECEIPT_ALREADY_USED(HttpStatus.CONFLICT, "BAKE002", "이미 사용한 영수증입니다."),
+    INVALID_RECEIPT_TOKEN(HttpStatus.BAD_REQUEST, "BAKE003", "유효하지 않거나 만료된 인증 토큰입니다."),
     BAKERY_NOT_FOUND(HttpStatus.NOT_FOUND, "BAKERY404" , "빵집이 존재하지 않습니다." ),
     ATTRACTION_FETCH_FAILED(HttpStatus.BAD_GATEWAY, "BAKERY502", "근처 관광지 정보를 가져오지 못했습니다."),
 
