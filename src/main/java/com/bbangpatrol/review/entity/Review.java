@@ -44,8 +44,8 @@ public class Review {
     @JoinColumn(name = "bakery_id")
     private Bakery bakery;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "visit_detail_id", nullable = false, unique = true)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "visit_detail_id", unique = true)
     private VisitDetail visitDetail;
 
     @Builder.Default
@@ -62,6 +62,8 @@ public class Review {
 
     public void softDelete() {
         this.deletedAt = LocalDateTime.now();
+        // UNIQUE 제약 때문에 끊어 줘야 같은 방문에 다시 쓸 수 있다
+        this.visitDetail = null;
     }
 
     public void decreaseLikeCount() {
