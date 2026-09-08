@@ -19,6 +19,7 @@ import com.bbangpatrol.user.dto.UserResponseDTO;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
 import com.bbangpatrol.visit.entity.Visit;
+import com.bbangpatrol.visit.entity.VisitDetail;
 import com.bbangpatrol.visit.repository.VisitRepository;
 import com.bbangpatrol.mission.repository.MissionProgressRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,8 +34,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -64,8 +64,6 @@ public class UserService {
         Long collected = userItemRepository.countByUser(user);
         List<UserItem> userItemList = userItemRepository.findTop8ByUserOrderByAcquiredAtDescIdDesc(user);
 
-        List<Visit> visitList = visitRepository.findByUser(user);
-
         Long reviewCnt = reviewRepository.countByUserAndDeletedAtIsNull(user);
         Long reviewLikes = reviewLikeRepository.countLikes(user);
 
@@ -79,15 +77,8 @@ public class UserService {
                         .items(userItemList.stream().map(ui -> UserResponseDTO.CollectionItem.builder()
                                 .collectibleId(ui.getItem().getId())
                                 .name(ui.getItem().getName())
-                                .rank(ui.getItem().getRank())
+                                .rank(ui.getItem().getRank().toString())
                                 .image(r2Service.getPublicUrl(ui.getItem().getImageUrl())).build()).toList()).build())
-                .map(visitList.stream().map(visit -> {
-                    Bakery bakery = visit.getBakery();
-
-                    return UserResponseDTO.Coordinate.builder()
-                            .lat(bakery.getLat())
-                            .lon(bakery.getLng()).build();
-                }).toList())
                 .point(user.getPointBalance())
                 .reviews(UserResponseDTO.ReviewStat.builder()
                         .reviewCount(reviewCnt)
@@ -97,6 +88,7 @@ public class UserService {
                         .title(progress.getMission().getTitle())
                         .count(progress.getCount())
                         .targetCount(progress.getMission().getTargetCount())
+                        .status(progress.getStatus().toString())
                         .build()).toList())
                 .build();
     }
@@ -206,18 +198,31 @@ public class UserService {
     public UserResponseDTO.VisitedBakeryListDTO getBakeryList(Long userId) {
         User user = getUser(userId);
 
-        List<UserResponseDTO.Coordinate> visits = visitRepository.findByUser(user).stream()
-                .map(Visit::getBakery)
-                .filter(Objects::nonNull)
-                .map(bakery -> UserResponseDTO.Coordinate.builder()
-                        .lat(bakery.getLat())
-                        .lon(bakery.getLng())
-                        .build())
-                .toList();
+        Map<Bakery, List<VisitDetail>> visitDetails = new HashMap<>();
+        List<Visit> visits = visitRepository.findByUser(user);
+        for(Visit v : visits) visitDetails.put(v.getBakery(), v.getVisitDetails());
 
-        return UserResponseDTO.VisitedBakeryListDTO.builder()
-                .visits(visits)
-                .build();
+        List<UserResponseDTO.VisitBakeryDTO> data = new ArrayList<>();
+        for (Map.Entry<Bakery, List<VisitDetail>> entry : visitDetails.entrySet()) {
+            Bakery bakery = entry.getKey();
+            List<VisitDetail> details = entry.getValue();
+
+            for (VisitDetail visitDetail : details) {
+                Review review = visitDetail.getReview();
+
+                data.add(UserResponseDTO.VisitBakeryDTO.builder()
+                        .storeId(bakery.getId())
+                        .storeName(bakery.getName())
+                        .visitDate(visitDetail.getVisitedAt().toString())
+                        .reviewId(review == null ? null : review.getId())
+                        .rating(review == null ? null : review.getRating())
+                        .review(review == null ? null : review.getContent())
+                        .build());
+            }
+        }
+        data.sort(Comparator.comparing(UserResponseDTO.VisitBakeryDTO::getVisitDate, Comparator.reverseOrder()));
+
+        return new UserResponseDTO.VisitedBakeryListDTO(data);
     }
 
     private User getUser(Long userId) {

@@ -2,6 +2,7 @@ package com.bbangpatrol.review.entity;
 
 import com.bbangpatrol.bakery.entity.Bakery;
 import com.bbangpatrol.user.entity.User;
+import com.bbangpatrol.visit.entity.VisitDetail;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -42,6 +43,10 @@ public class Review {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "bakery_id")
     private Bakery bakery;
+
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "visit_detail_id", nullable = false, unique = true)
+    private VisitDetail visitDetail;
 
     @Builder.Default
     @OneToMany(mappedBy = "review")
