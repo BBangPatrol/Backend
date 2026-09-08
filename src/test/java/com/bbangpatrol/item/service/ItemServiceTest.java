@@ -1,6 +1,8 @@
 package com.bbangpatrol.item.service;
 
 import com.bbangpatrol.common.service.R2Service;
+import com.bbangpatrol.common.exception.ApiException;
+import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.item.dto.DrawResultResponse;
 import com.bbangpatrol.item.entity.Item;
 import com.bbangpatrol.item.entity.ItemRank;
@@ -18,7 +20,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -132,7 +133,8 @@ class ItemServiceTest {
         when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> itemService.drawItem(USER_ID))
-                .isInstanceOf(UsernameNotFoundException.class);
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
 
         verify(pointService, never()).updatePoint(anyLong(), anyInt(), org.mockito.ArgumentMatchers.anyBoolean(), any());
         verify(userItemRepository, never()).save(any());
