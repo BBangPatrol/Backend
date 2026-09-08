@@ -2,7 +2,7 @@ package com.bbangpatrol.review.service;
 
 import com.bbangpatrol.bakery.entity.Bakery;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
-import com.bbangpatrol.common.dto.CursorPageInfo;
+import com.bbangpatrol.common.dto.OffsetPageInfo;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.service.UploadedImage;
@@ -20,6 +20,7 @@ import com.bbangpatrol.visit.entity.VisitDetail;
 import com.bbangpatrol.visit.repository.VisitDetailRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -95,14 +96,13 @@ public class ReviewService {
         return review;
     }
 
-    public ReviewListResponse getReview(long storeId, Long cursor) {
-        // 1개를 더 가져와서 hasNext를 판별
-        List<Review> reviews = reviewRepository
-                .findAllByBakeryWithCursor(storeId, cursor, PageRequest.of(0, SIZE + 1));
+    public ReviewListResponse getReview(long storeId, int page) {
+        // PageRequest.of 가 음수에 IllegalArgumentException 을 던져 500 이 된다
+        if (page < 0) throw new ApiException(ErrorCode.BAD_REQUEST);
 
-        boolean hasNext = reviews.size() > SIZE;
-        List<Review> content = hasNext ? reviews.subList(0, SIZE) : reviews;
-        
+        Page<Review> reviews = reviewRepository.findPageByBakeryId(storeId, PageRequest.of(page, SIZE));
+        List<Review> content = reviews.getContent();
+
         // 리뷰 아이디만 따로 모으기 => 리뷰 이미지 조회, 리뷰 키워드 조회
         List<Long> reviewIds = content.stream().map(Review::getId).toList();
 
@@ -156,11 +156,14 @@ public class ReviewService {
                     review.getCreatedAt()
                 )).toList();
 
-        Long nextCursor = hasNext ? content.get(content.size() - 1).getId() : null;
-        CursorPageInfo cursorPageInfo = new CursorPageInfo(content.size(), hasNext, nextCursor);
-        long totalReviewCount = reviewRepository.countByBakery_IdAndDeletedAtIsNull(storeId);
+        OffsetPageInfo pageInfo = new OffsetPageInfo(
+                reviews.getNumber(),
+                reviews.getSize(),
+                reviews.getTotalElements(),
+                reviews.getTotalPages(),
+                reviews.hasNext());
 
-        return new ReviewListResponse(reviewResponses, totalReviewCount, cursorPageInfo);
+        return new ReviewListResponse(reviewResponses, reviews.getTotalElements(), pageInfo);
     }
 
     @Transactional
@@ -170,7 +173,7 @@ public class ReviewService {
 
         // 아래 save 는 merge 라 deletedAt 이 null 로 덮인다. 막지 않으면 삭제한 리뷰가 되살아난다
         if (originalReview.getDeletedAt() != null) throw new ApiException(ErrorCode.REVIEW_NOT_FOUND);
-        
+
         // 작성자 아이디와 요청한 아이디가 다른 경우
         if (userId != originalReview.getUser().getId()) throw new ApiException(ErrorCode.USER_UNAUTHORIZE);
 

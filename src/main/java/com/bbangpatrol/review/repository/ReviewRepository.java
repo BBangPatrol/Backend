@@ -31,21 +31,19 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
                     """)
     Page<Review> findMyReviews(@Param("userId") Long userId, Pageable pageable);
 
-    List<Review> findAllByBakery(Bakery bakery);
+    @Query(
+            value = """
+                    select r from Review r
+                    join fetch r.user
+                    where r.bakery.id = :bakeryId
+                    and r.deletedAt is null
+                    order by r.id desc
+                    """,
+            countQuery = """
+                    select count(r) from Review r
+                    where r.bakery.id = :bakeryId
+                    and r.deletedAt is null
+                    """)
+    Page<Review> findPageByBakeryId(@Param("bakeryId") long bakeryId, Pageable pageable);
 
-    // cursor가 null인 경우 => 첫 페이지
-    @Query("""
-        select r from Review r
-        join fetch r.user
-        where r.bakery.id = :bakeryId
-        and r.deletedAt is null 
-        and (:cursor is null  or r.id < :cursor)
-        order by r.id desc 
-    """)
-    List<Review> findAllByBakeryWithCursor(
-            @Param("bakeryId") long bakeryId,
-            @Param("cursor") Long cursor,
-            Pageable pageable);
-
-    long countByBakery_IdAndDeletedAtIsNull(Long bakeryId);
 }
