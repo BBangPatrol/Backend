@@ -2,8 +2,16 @@ package com.bbangpatrol.common.exception;
 
 import com.bbangpatrol.common.util.ApiResponse;
 import com.bbangpatrol.common.util.code.ErrorCode;
+import com.bbangpatrol.visit.dto.VisitRequest;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.MethodParameter;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,6 +36,29 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void validationErrorUsesApiResponseShape() throws Exception {
+        // @Valid 로 걸러진 요청도 다른 에러와 같은 형태로 나가야 한다
+        BeanPropertyBindingResult bindingResult =
+                new BeanPropertyBindingResult(new VisitRequest(), "visitRequest");
+        bindingResult.addError(new FieldError("visitRequest", "date", "널이어서는 안됩니다"));
+
+        MethodParameter parameter = new MethodParameter(
+                GlobalExceptionHandlerTest.class.getDeclaredMethod("dummy", VisitRequest.class), 0);
+
+        ResponseEntity<ApiResponse<Void>> response = handler.handleValidationException(
+                new MethodArgumentNotValidException(parameter, bindingResult));
+
+        assertThat(response.getStatusCode()).isEqualTo(ErrorCode.BAD_REQUEST.getStatus());
+        assertThat(response.getBody())
+                .extracting("isSuccess", "code", "errors")
+                .containsExactly(false, "COMMON400", new ErrorDetail("date", "널이어서는 안됩니다"));
+    }
+
+    @SuppressWarnings("unused")
+    private void dummy(VisitRequest request) {
+    }
+
+    @Test
     void detailedErrorContainsErrors() {
         ErrorDetail detail = new ErrorDetail("authorizationCode", "카카오 인가 코드가 비어 있습니다.");
 
@@ -37,5 +68,38 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody())
                 .extracting("errors")
                 .isEqualTo(detail);
+    }
+    @Test
+    void unreadableBodyIsFourHundredAndHidesInternals() {
+        // 예전에는 Jackson 예외의 원인이 IOException 이라 handleIOException 이 잡았고,
+        // 그 핸들러는 ResponseEntity 없이 반환해서 실패인데도 HTTP 200 이 나갔다
+        ResponseEntity<ApiResponse<Void>> response = handler.handleUnreadableRequest(
+                new HttpMessageNotReadableException("Unexpected end-of-input", (org.springframework.http.HttpInputMessage) null));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody())
+                .extracting("isSuccess", "code", "message")
+                .containsExactly(false, "COMMON400", "잘못된 요청입니다.");
+    }
+
+    @Test
+    void serverSideIoFailureIsFiveHundred() {
+        ResponseEntity<ApiResponse<Void>> response =
+                handler.handleIOException(new java.io.IOException("R2 upload failed"));
+
+        // 이전에는 200 이 나갔다
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(response.getBody()).extracting("code").isEqualTo("R2500");
+    }
+
+    @Test
+    void missingParameterIsFourHundredWithFieldName() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleMissingParameter(
+                new MissingServletRequestParameterException("type", "String"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody())
+                .extracting("errors")
+                .isEqualTo(new ErrorDetail("type", "필수 파라미터가 없습니다."));
     }
 }
