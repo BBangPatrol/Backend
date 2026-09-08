@@ -11,6 +11,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.http.HttpMethod;
 import org.springframework.validation.BeanPropertyBindingResult;
@@ -132,5 +133,25 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
         assertThat(response.getBody()).extracting("code").isEqualTo("COMMON415");
+    }
+
+    @Test
+    void externalApiFailureKeepsStatusAndUsesApiResponseShape() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleResponseStatus(
+                new ResponseStatusException(HttpStatus.BAD_GATEWAY, "카카오 사용자 정보 조회에 실패했습니다."));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        assertThat(response.getBody())
+                .extracting("isSuccess", "code", "message")
+                .containsExactly(false, "COMMON502", "카카오 사용자 정보 조회에 실패했습니다.");
+    }
+
+    @Test
+    void externalApiFailureFallsBackToErrorCodeMessage() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleResponseStatus(
+                new ResponseStatusException(HttpStatus.BAD_REQUEST));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).extracting("code").isEqualTo("COMMON400");
     }
 }
