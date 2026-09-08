@@ -1,7 +1,7 @@
 package com.bbangpatrol.user.service;
 
 import com.bbangpatrol.bakery.entity.Bakery;
-import com.bbangpatrol.common.dto.PageInfo;
+import com.bbangpatrol.common.dto.OffsetPageInfo;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.util.code.ErrorCode;
@@ -23,6 +23,7 @@ import com.bbangpatrol.visit.repository.VisitRepository;
 import com.bbangpatrol.mission.repository.MissionProgressRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,11 +52,8 @@ public class UserService {
     private final R2Service r2Service;
 
     private static final List<String> ALLOWED_PROFILE_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/webp");
-    // 프로필 이미지는 아바타로만 쓰이므로 400px 한 장이면 충분하다 (리뷰 목록에 20개가 함께 뜬다)
     private static final int PROFILE_IMAGE_MAX_DIMENSION = 400;
     private static final float PROFILE_IMAGE_QUALITY = 0.8f;
-    private static final int POINT_HISTORY_PAGE_SIZE = 20;
-    private static final int REVIEW_HISTORY_PAGE_SIZE = 20;
     private static final String USERS_DIR = "users";
 
     @Transactional
@@ -151,15 +149,11 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public UserResponseDTO.PointHistoryDTO getPointHistory(Long userId, Long cursor) {
+    public UserResponseDTO.PointHistoryDTO getPointHistory(Long userId, int page) {
         getUser(userId);
 
-        List<Point> points = pointRepository.findPointHistory(userId, cursor, PageRequest.of(0, POINT_HISTORY_PAGE_SIZE + 1));
-
-        boolean hasNext = points.size() > POINT_HISTORY_PAGE_SIZE;
-        List<Point> page = hasNext ? points.subList(0, POINT_HISTORY_PAGE_SIZE) : points;
-
-        List<UserResponseDTO.PointDTO> pointHistory = page.stream()
+        Page<Point> points = pointRepository.findPointHistory(userId, PageRequest.of(page, 5));
+        List<UserResponseDTO.PointDTO> pointHistory = points.getContent().stream()
                 .map(point -> UserResponseDTO.PointDTO.builder()
                         .type(point.getType().name())
                         .content(point.getContent())
@@ -168,24 +162,23 @@ public class UserService {
                         .build())
                 .toList();
 
-        Long nextCursor = hasNext ? page.get(page.size() - 1).getId() : null;
-
         return UserResponseDTO.PointHistoryDTO.builder()
                 .point_history(pointHistory)
-                .pageInfo(new PageInfo(pointHistory.size(), hasNext, nextCursor))
+                .pageInfo(new OffsetPageInfo(
+                        points.getNumber(),
+                        points.getSize(),
+                        points.getTotalElements(),
+                        points.getTotalPages(),
+                        points.hasNext()))
                 .build();
     }
 
     @Transactional(readOnly = true)
-    public UserResponseDTO.ReviewHistoryDTO getMyReviews(Long userId, Long cursor) {
+    public UserResponseDTO.ReviewHistoryDTO getMyReviews(Long userId, int page) {
         User user = getUser(userId);
 
-        List<Review> reviews = reviewRepository.findMyReviews(userId, cursor, PageRequest.of(0, REVIEW_HISTORY_PAGE_SIZE + 1));
-
-        boolean hasNext = reviews.size() > REVIEW_HISTORY_PAGE_SIZE;
-        List<Review> page = hasNext ? reviews.subList(0, REVIEW_HISTORY_PAGE_SIZE) : reviews;
-
-        List<UserResponseDTO.ReviewDTO> reviewHistory = page.stream()
+        Page<Review> reviews = reviewRepository.findMyReviews(userId, PageRequest.of(page, 5));
+        List<UserResponseDTO.ReviewDTO> reviewHistory = reviews.getContent().stream()
                 .map(review -> UserResponseDTO.ReviewDTO.builder()
                         .bakeryId(review.getBakery().getId())
                         .bakeryName(review.getBakery().getName())
@@ -196,13 +189,16 @@ public class UserService {
                         .build())
                 .toList();
 
-        Long nextCursor = hasNext ? page.get(page.size() - 1).getId() : null;
-
         return UserResponseDTO.ReviewHistoryDTO.builder()
                 .reviews(reviewHistory)
-                .reviewCount(reviewRepository.countByUserAndDeletedAtIsNull(user))
+                .reviewCount(reviews.getTotalElements())
                 .reviewLikes(reviewRepository.sumLikeCountByUser(user))
-                .pageInfo(new PageInfo(reviewHistory.size(), hasNext, nextCursor))
+                .pageInfo(new OffsetPageInfo(
+                        reviews.getNumber(),
+                        reviews.getSize(),
+                        reviews.getTotalElements(),
+                        reviews.getTotalPages(),
+                        reviews.hasNext()))
                 .build();
     }
 

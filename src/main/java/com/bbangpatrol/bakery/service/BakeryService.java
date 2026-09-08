@@ -9,7 +9,7 @@ import com.bbangpatrol.bakery.enums.AttractionCategory;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.bookmark.entity.Bookmark;
 import com.bbangpatrol.bookmark.repository.BookmarkRepository;
-import com.bbangpatrol.common.dto.PageInfo;
+import com.bbangpatrol.common.dto.CursorPageInfo;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.util.code.ErrorCode;
@@ -74,7 +74,7 @@ public class BakeryService {
                 .toList();
 
         Long nextCursor = hasNext ? pageIds.get(pageIds.size() - 1) : null;
-        return new BakerySearchResponse(result, new PageInfo(result.size(), hasNext, nextCursor));
+        return new BakerySearchResponse(result, new CursorPageInfo(result.size(), hasNext, nextCursor));
     }
 
     @Transactional(readOnly = true)

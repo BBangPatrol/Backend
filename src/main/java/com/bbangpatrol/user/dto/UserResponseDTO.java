@@ -1,6 +1,6 @@
 package com.bbangpatrol.user.dto;
 
-import com.bbangpatrol.common.dto.PageInfo;
+import com.bbangpatrol.common.dto.OffsetPageInfo;
 import com.bbangpatrol.item.entity.ItemRank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -89,7 +89,7 @@ public class UserResponseDTO {
     @AllArgsConstructor
     public static class PointHistoryDTO {
         List<PointDTO> point_history;
-        PageInfo pageInfo;
+        OffsetPageInfo pageInfo;
     }
 
     @Data
@@ -111,7 +111,7 @@ public class UserResponseDTO {
         List<ReviewDTO> reviews;
         Long reviewCount;
         Long reviewLikes;
-        PageInfo pageInfo;
+        OffsetPageInfo pageInfo;
     }
 
     @Data

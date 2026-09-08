@@ -2,7 +2,7 @@ package com.bbangpatrol.review.service;
 
 import com.bbangpatrol.bakery.entity.Bakery;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
-import com.bbangpatrol.common.dto.PageInfo;
+import com.bbangpatrol.common.dto.CursorPageInfo;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.service.UploadedImage;
@@ -31,7 +31,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -147,10 +146,10 @@ public class ReviewService {
                 )).toList();
 
         Long nextCursor = hasNext ? content.get(content.size() - 1).getId() : null;
-        PageInfo pageInfo = new PageInfo(content.size(), hasNext, nextCursor);
+        CursorPageInfo cursorPageInfo = new CursorPageInfo(content.size(), hasNext, nextCursor);
         long totalReviewCount = reviewRepository.countByBakery_IdAndDeletedAtIsNull(storeId);
 
-        return new ReviewListResponse(reviewResponses, totalReviewCount, pageInfo);
+        return new ReviewListResponse(reviewResponses, totalReviewCount, cursorPageInfo);
     }
 
     @Transactional

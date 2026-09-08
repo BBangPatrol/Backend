@@ -1,12 +1,12 @@
 package com.bbangpatrol.review.dto;
 
-import com.bbangpatrol.common.dto.PageInfo;
+import com.bbangpatrol.common.dto.CursorPageInfo;
 
 import java.util.List;
 
 public record ReviewListResponse(
         List<ReviewResponse> reviews,
         long count,
-        PageInfo pageInfo
+        CursorPageInfo cursorPageInfo
 ) {
 }

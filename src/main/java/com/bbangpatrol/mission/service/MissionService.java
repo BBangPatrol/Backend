@@ -1,7 +1,7 @@
 package com.bbangpatrol.mission.service;
 
 import com.bbangpatrol.common.dto.OffsetPageable;
-import com.bbangpatrol.common.dto.PageInfo;
+import com.bbangpatrol.common.dto.CursorPageInfo;
 import com.bbangpatrol.mission.dto.MissionListResponse;
 import com.bbangpatrol.mission.dto.MissionMainResponse;
 import com.bbangpatrol.mission.dto.MissionResponse;
@@ -55,7 +55,7 @@ public class MissionService {
         boolean hasNext = consumed < rows.getTotalElements();
         Long nextCursor = hasNext ? consumed : null;
 
-        return new MissionListResponse(missions, new PageInfo(missions.size(), hasNext, nextCursor));
+        return new MissionListResponse(missions, new CursorPageInfo(missions.size(), hasNext, nextCursor));
     }
 
     /**

@@ -42,14 +42,14 @@ public class UserController {
     }
 
     @GetMapping("/points")
-    public ApiResponse<UserResponseDTO.PointHistoryDTO> getPointsHistory(@AuthenticationPrincipal Long userId, @RequestParam(required = false, defaultValue = "") Long cursor) {
-        UserResponseDTO.PointHistoryDTO data = userService.getPointHistory(userId, cursor);
+    public ApiResponse<UserResponseDTO.PointHistoryDTO> getPointsHistory(@AuthenticationPrincipal Long userId, @RequestParam(required = false, defaultValue = "0") int page) {
+        UserResponseDTO.PointHistoryDTO data = userService.getPointHistory(userId, page);
         return ApiResponse.onSuccess(data);
     }
 
     @GetMapping("/reviews")
-    public ApiResponse<UserResponseDTO.ReviewHistoryDTO> getMyReviews(@AuthenticationPrincipal Long userId, @RequestParam(required = false, defaultValue = "") Long cursor) {
-        return ApiResponse.onSuccess(userService.getMyReviews(userId, cursor));
+    public ApiResponse<UserResponseDTO.ReviewHistoryDTO> getMyReviews(@AuthenticationPrincipal Long userId, @RequestParam(required = false, defaultValue = "0") int page) {
+        return ApiResponse.onSuccess(userService.getMyReviews(userId, page));
     }
 
     @GetMapping("/bread-collections")
