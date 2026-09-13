@@ -16,4 +16,6 @@ public class MeResponse {
     private String userNickname;
 
     private String imageUrl;
+
+    private Integer point;
 }
