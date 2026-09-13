@@ -15,6 +15,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
@@ -156,6 +157,25 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(exception.getStatusCode())
                 .body(ApiResponse.onFailure(errorCode.getCode(), message));
+    }
+
+    // 외부 API(TourAPI·카카오·Gemini·OCR) 호출이 실패해 여기까지 온 경우.
+    //
+    // 전용 핸들러를 두지 않으면 Spring 이 cause 사슬을 따라가며 핸들러를 찾는다.
+    // RestClient 가 응답 본문을 못 읽으면 cause 가 HttpMessageNotReadableException 이라
+    // 요청 파싱용으로 만든 handleUnreadableRequest 가 대신 잡아서, 서버 쪽 문제가
+    // 400(잘못된 요청)으로 둔갑해 나간다. 원인이 클라이언트에 있는 것처럼 보이게 된다.
+    //
+    // 관광지처럼 전용 코드가 있는 호출은 각 클라이언트가 ApiException 으로 바꿔 던지므로
+    // 여기는 그러지 않은 나머지를 받는 그물이다.
+    @ExceptionHandler(RestClientException.class)
+    public ResponseEntity<ApiResponse<Void>> handleExternalApiException(RestClientException exception) {
+        ErrorCode errorCode = ErrorCode.EXTERNAL_SERVER_ERROR_502;
+        log.error("[외부 API] 처리되지 않은 호출 실패", exception);
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage()));
     }
 
     @ExceptionHandler(DataAccessException.class)
