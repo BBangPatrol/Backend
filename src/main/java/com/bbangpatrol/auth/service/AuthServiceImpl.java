@@ -128,6 +128,7 @@ public class AuthServiceImpl implements AuthService {
         response.setId(userId);
         response.setUserNickname(user.getName());
         response.setImageUrl(r2Service.getPublicUrl(user.getUserImage()));
+        response.setPoint(user.getPointBalance());
 
         return response;
     }
