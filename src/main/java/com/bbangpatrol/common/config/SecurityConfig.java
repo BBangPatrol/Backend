@@ -39,7 +39,8 @@ public class SecurityConfig {
                                 "/api/v1/stores/search",          // 지도 검색
                                 "/api/v1/stores/*/detail",        // 가게 상세
                                 "/api/v1/stores/*/attractions",   // 주변 관광지
-                                "/api/v1/stores/*/reviews"        // 리뷰 목록
+                                "/api/v1/stores/*/reviews",       // 리뷰 목록
+                                "/api/v1/stores/hot"              // 홈 인기 빵집
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

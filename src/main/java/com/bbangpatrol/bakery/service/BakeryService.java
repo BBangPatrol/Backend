@@ -85,7 +85,7 @@ public class BakeryService {
                         .map(bakery -> HotBakeryResponse.BakerySimpleDTO.builder()
                                 .storeId(bakery.getId())
                                 .storeName(bakery.getName())
-                                .image(r2Service.getPublicUrl(bakery.getSignatureImages().stream()
+                                .imageUrl(r2Service.getPublicUrl(bakery.getSignatureImages().stream()
                                         .findFirst()
                                         .orElse(null).getImageUrl()))
                                 .rating(bakery.getAvgRating())

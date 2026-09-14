@@ -64,7 +64,7 @@ public interface BakeryRepository extends JpaRepository<Bakery, Long> {
             ORDER BY COUNT(vd.id) DESC,
                      MAX(vd.visited_at) DESC,
                      b.id DESC
-            LIMIT 5
+            LIMIT 4
             """, nativeQuery = true)
     List<Bakery> findHotBakeries();
 
