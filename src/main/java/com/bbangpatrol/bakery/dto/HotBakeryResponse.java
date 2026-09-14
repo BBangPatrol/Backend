@@ -24,6 +24,7 @@ public class HotBakeryResponse {
     public static class BakerySimpleDTO {
         Long storeId;
         String storeName;
+        String image;
         BigDecimal rating;
         String region;
     }
