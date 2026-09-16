@@ -134,9 +134,13 @@ public class UserResponseDTO {
     public static class VisitBakeryDTO {
         Long storeId;
         String storeName;
+        String storeImageUrl;
         String visitDate;
+        String state;
         Long reviewId;
         Integer rating;
-        String review;
+        String reviewContent;
+        String reviewDeadline;
+        Long remainingDays;
     }
 }
