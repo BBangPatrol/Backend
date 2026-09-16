@@ -120,7 +120,7 @@ class UserServiceTest {
         assertThat(result.getVisits().get(0))
                 .extracting(UserResponseDTO.VisitBakeryDTO::getReviewId,
                         UserResponseDTO.VisitBakeryDTO::getRating,
-                        UserResponseDTO.VisitBakeryDTO::getReview)
+                        UserResponseDTO.VisitBakeryDTO::getReviewContent)
                 .containsOnlyNulls();
     }
 
