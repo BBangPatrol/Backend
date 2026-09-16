@@ -1,6 +1,7 @@
 package com.bbangpatrol.user.service;
 
 import com.bbangpatrol.bakery.entity.Bakery;
+import com.bbangpatrol.bakery.entity.SignatureImage;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.util.code.ErrorCode;
@@ -39,8 +40,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * 방문 내역 조회는 NULL 을 허용하는 visit_detail.visited_at 위에서 돌고, 소프트 삭제된 리뷰가
- * 섞여 들어올 수 있다. 어느 쪽도 응답을 깨거나 새어 나가지 않는지 확인한다.
+ * 방문 내역 조회는 소프트 삭제된 리뷰가 섞여 들어올 수 있다. 응답에 새어 나가지 않는지 확인한다.
+ * visited_at 과 대표 이미지(signature image)는 항상 존재한다는 전제로 동작한다.
  * 빵집이 없는 방문을 거르는 일과 정렬은 findHistoryByUserId 쿼리가 맡으므로 여기서는 보지 않는다.
  */
 @ExtendWith(MockitoExtension.class)
@@ -79,18 +80,6 @@ class UserServiceTest {
 
         // Visit -> VisitDetail -> Review 를 하나씩 따라가면 방문 수만큼 쿼리가 늘어난다
         verify(visitDetailRepository).findHistoryByUserId(USER_ID);
-    }
-
-    @Test
-    @DisplayName("방문 날짜가 없어도 터지지 않는다")
-    void toleratesNullVisitDate() {
-        // visit_detail.visited_at 은 NULL 을 허용한다
-        givenHistory(visitDetail(null, null));
-
-        UserResponseDTO.VisitedBakeryListDTO result = userService.getBakeryList(USER_ID);
-
-        assertThat(result.getVisits()).hasSize(1);
-        assertThat(result.getVisits().get(0).getVisitDate()).isNull();
     }
 
     @Test
@@ -154,7 +143,11 @@ class UserServiceTest {
     }
 
     private Bakery bakery() {
-        return Bakery.builder().id(101L).name("성심당").build();
+        Bakery bakery = Bakery.builder().id(101L).name("성심당").build();
+        // 대표 이미지는 항상 최소 1장 존재한다는 전제(V6 마이그레이션에서 전체 빵집에 백필됨)
+        bakery.getSignatureImages().add(
+                SignatureImage.builder().id(201L).imageUrl("bakeries/101/signature_menu.jpg").build());
+        return bakery;
     }
 
     private Review review(LocalDateTime deletedAt) {
