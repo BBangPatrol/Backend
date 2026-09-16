@@ -146,8 +146,8 @@ public class OcrServiceImpl implements OcrService {
             LocalDate receiptDate = LocalDate.parse(date);
             LocalDate today = LocalDate.now();
 
-            // 오늘 기준 7일 이전 날짜보다 더 과거면 등록 불가. 일단 개발을 위해 30일로
-            if (receiptDate.isBefore(today.minusDays(30))) {
+            // 오늘 기준 7일 이전 날짜보다 더 과거면 등록 불가. 일단 개발을 위해 10년으로
+            if (receiptDate.isBefore(today.minusDays(3650))) {
                 throw new ApiException(ErrorCode.RECEIPT_TOO_OLD);
             }
 
