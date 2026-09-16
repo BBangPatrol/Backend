@@ -33,6 +33,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Service
@@ -209,15 +210,23 @@ public class UserService {
                     Review review = visitDetail.getReview();
                     if (review != null && review.getDeletedAt() != null) review = null;
 
+                    LocalDate today = LocalDate.now();
                     LocalDate visitedAt = visitDetail.getVisitedAt();
+                    LocalDate deadline = visitedAt.plusDays(7);
+
+                    String state = review != null ? "reviewed" : deadline.isBefore(today) ? "expired" : "none";
 
                     return UserResponseDTO.VisitBakeryDTO.builder()
                             .storeId(bakery.getId())
                             .storeName(bakery.getName())
-                            .visitDate(visitedAt == null ? null : visitedAt.toString())
+                            .storeImageUrl(r2Service.getPublicUrl(bakery.getSignatureImages().get(0).getImageUrl()))
+                            .visitDate(visitedAt.toString())
+                            .state(state)
                             .reviewId(review == null ? null : review.getId())
                             .rating(review == null ? null : review.getRating())
-                            .review(review == null ? null : review.getContent())
+                            .reviewContent(review == null ? null : review.getContent())
+                            .reviewDeadline(deadline.toString())
+                            .remainingDays(Math.max(ChronoUnit.DAYS.between(today, deadline), 0))
                             .build();
                 })
                 .toList();
