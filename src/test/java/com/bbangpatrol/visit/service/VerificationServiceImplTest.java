@@ -57,6 +57,8 @@ class VerificationServiceImplTest {
     @Mock
     private ReceiptHashService receiptHashService;
     @Mock
+    private ReceiptDuplicateChecker receiptDuplicateChecker;
+    @Mock
     private PointService pointService;
     @Mock
     private MissionEvaluator missionEvaluator;
@@ -76,7 +78,7 @@ class VerificationServiceImplTest {
     @DisplayName("이미 쓴 영수증이면 막고 포인트도 방문 기록도 남기지 않는다")
     void rejectsAlreadyUsedReceipt() {
         givenTokenAndBakery();
-        when(visitDetailRepository.existsByReceiptHash(HASH)).thenReturn(true);
+        when(receiptDuplicateChecker.isAlreadyUsed(HASH, USER_ID)).thenReturn(true);
 
         assertThatThrownBy(() -> verificationService.doVerification(USER_ID, STORE_ID, request(12000)))
                 .isInstanceOf(ApiException.class)
@@ -167,7 +169,7 @@ class VerificationServiceImplTest {
 
     private Visit givenTokenBakeryAndVisit() {
         givenTokenAndBakery();
-        lenient().when(visitDetailRepository.existsByReceiptHash(HASH)).thenReturn(false);
+        lenient().when(receiptDuplicateChecker.isAlreadyUsed(HASH, USER_ID)).thenReturn(false);
 
         Visit visit = Visit.create(user(), bakery());
         ReflectionId.set(visit, 77L);

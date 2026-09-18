@@ -12,6 +12,15 @@ public interface VisitDetailRepository extends JpaRepository<VisitDetail, Long> 
 
     boolean existsByReceiptHash(String receiptHash);
 
+    // 시연용으로 한 영수증을 여러 사람이 쓰게 열어둘 때 쓴다. 같은 사람의 재사용은 그대로 막힌다
+    @Query("""
+        select count(vd) > 0 from VisitDetail vd
+        where vd.receiptHash = :receiptHash
+          and vd.visit.user.id = :userId
+    """)
+    boolean existsByReceiptHashAndUserId(@Param("receiptHash") String receiptHash,
+                                         @Param("userId") Long userId);
+
     // vd.review is null 로는 소프트 삭제를 못 걸러 not exists 를 쓴다
     @Query("""
         select vd from VisitDetail vd
