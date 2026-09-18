@@ -32,11 +32,13 @@ public enum ErrorCode implements BaseErrorCode{
     RECEIPT_TOO_OLD(HttpStatus.BAD_REQUEST, "PARSE400-7", "영수증의 등록 기한이 만료되었습니다."),
     RECEIPT_STORE_MISMATCH(HttpStatus.BAD_REQUEST, "PARSE400-8", "영수증과 인증 가게가 일치하지 않습니다."),
     RECEIPT_BUSINESS_NUMBER_MISSING(HttpStatus.BAD_REQUEST, "PARSE400-9", "영수증에서 사업자번호가 인식되지 않았습니다."),
+    RECEIPT_BRANCH_NOT_REGISTERED(HttpStatus.BAD_REQUEST, "PARSE400-10", "아직 등록되지 않은 지점의 영수증입니다."),
 
     // 빵집 관련 에러들
     RECEIPT_ALREADY_USED(HttpStatus.CONFLICT, "BAKE002", "이미 사용한 영수증입니다."),
     INVALID_RECEIPT_TOKEN(HttpStatus.BAD_REQUEST, "BAKE003", "유효하지 않거나 만료된 인증 토큰입니다."),
     BAKERY_NOT_FOUND(HttpStatus.NOT_FOUND, "BAKERY404" , "빵집이 존재하지 않습니다." ),
+    BAKERY_BUSINESS_NUMBER_MISSING(HttpStatus.NOT_FOUND, "BAKERY405", "이 빵집은 아직 영수증 인증을 지원하지 않습니다."),
     ATTRACTION_FETCH_FAILED(HttpStatus.BAD_GATEWAY, "BAKERY502", "근처 관광지 정보를 가져오지 못했습니다."),
 
     // Mission에 관한 에러

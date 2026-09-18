@@ -1,7 +1,9 @@
 package com.bbangpatrol.ocr.service;
 
+import com.bbangpatrol.common.enums.Region;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.util.code.ErrorCode;
+import com.bbangpatrol.ocr.dto.ReceiptTokenPayload;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -20,38 +22,59 @@ public class ReceiptTokenService {
 
     private static final String KEY_PREFIX = "receipt:verification:";
     private static final Duration TTL = Duration.ofMinutes(10);
+    // 승인번호는 숫자, 사업자번호는 숫자와 하이픈, 구는 enum 이름이라 이 구분자와 겹치지 않는다
+    private static final String DELIMITER = "|";
 
     private final StringRedisTemplate redisTemplate;
 
     @Value("${receipt.verification-secret}")
     private String secret;
 
-    public String issueToken(Long userId, String receiptNum) {
+    public String issueToken(Long userId, ReceiptTokenPayload payload) {
         String nonce = UUID.randomUUID().toString();
 
-        String raw = userId + ":" + receiptNum + ":" + nonce;
+        String raw = userId + ":" + payload.receiptNum() + ":" + nonce;
         String token = createHmac(raw);
 
         redisTemplate.opsForValue().set(
                 KEY_PREFIX + token,
-                receiptNum,
+                serialize(payload),
                 TTL
         );
 
         return token;
     }
 
-    public String consumeToken(String token) {
+    public ReceiptTokenPayload consumeToken(String token) {
         String key = KEY_PREFIX + token;
 
-        String receiptNum = redisTemplate.opsForValue()
+        String stored = redisTemplate.opsForValue()
                 .getAndDelete(key);
 
-        if (receiptNum == null) {
+        if (stored == null) {
             throw new ApiException(ErrorCode.INVALID_RECEIPT_TOKEN);
         }
 
-        return receiptNum;
+        return deserialize(stored);
+    }
+
+    private String serialize(ReceiptTokenPayload payload) {
+        return String.join(
+                DELIMITER,
+                payload.receiptNum(),
+                payload.businessNumber(),
+                payload.region() == null ? Region.NONE.name() : payload.region().name()
+        );
+    }
+
+    private ReceiptTokenPayload deserialize(String stored) {
+        // 배포 직전에 발급된 예전 형식 토큰이 남아 있을 수 있다. 재인증을 유도한다
+        String[] parts = stored.split("\\" + DELIMITER, -1);
+        if (parts.length != 3) {
+            throw new ApiException(ErrorCode.INVALID_RECEIPT_TOKEN);
+        }
+
+        return new ReceiptTokenPayload(parts[0], parts[1], Region.valueOf(parts[2]));
     }
 
     private String createHmac(String value) {

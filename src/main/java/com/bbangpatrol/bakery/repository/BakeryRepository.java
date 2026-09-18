@@ -67,13 +67,4 @@ public interface BakeryRepository extends JpaRepository<Bakery, Long> {
             LIMIT 4
             """, nativeQuery = true)
     List<Bakery> findHotBakeries();
-
-    @Query("""
-            select b.businessNumber
-            from Bakery b
-            where b.id = :storeId
-            """)
-    Optional<String> findBusinessNumberByStoreId(
-            @Param("storeId") Long storeId
-    );
 }

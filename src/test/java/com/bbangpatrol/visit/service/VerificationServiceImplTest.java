@@ -6,6 +6,7 @@ import com.bbangpatrol.common.enums.Region;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.mission.service.MissionEvaluator;
+import com.bbangpatrol.ocr.dto.ReceiptTokenPayload;
 import com.bbangpatrol.ocr.service.ReceiptTokenService;
 import com.bbangpatrol.point.service.PointService;
 import com.bbangpatrol.user.entity.User;
@@ -50,12 +51,15 @@ class VerificationServiceImplTest {
     private static final long STORE_ID = 101L;
     private static final String TOKEN = "verification-token";
     private static final String RECEIPT_NUM = "0001";
+    private static final String BUSINESS_NUMBER = "123-45-67890";
     private static final String HASH = "hashed-receipt";
 
     @Mock
     private ReceiptTokenService receiptTokenService;
     @Mock
     private ReceiptHashService receiptHashService;
+    @Mock
+    private ReceiptDuplicateChecker receiptDuplicateChecker;
     @Mock
     private PointService pointService;
     @Mock
@@ -76,7 +80,7 @@ class VerificationServiceImplTest {
     @DisplayName("이미 쓴 영수증이면 막고 포인트도 방문 기록도 남기지 않는다")
     void rejectsAlreadyUsedReceipt() {
         givenTokenAndBakery();
-        when(visitDetailRepository.existsByReceiptHash(HASH)).thenReturn(true);
+        when(receiptDuplicateChecker.isAlreadyUsed(HASH, USER_ID)).thenReturn(true);
 
         assertThatThrownBy(() -> verificationService.doVerification(USER_ID, STORE_ID, request(12000)))
                 .isInstanceOf(ApiException.class)
@@ -132,19 +136,19 @@ class VerificationServiceImplTest {
     }
 
     @Test
-    @DisplayName("해시는 가게 사업자번호와 영수증 정보를 함께 넣어 만든다")
+    @DisplayName("해시는 토큰에 담긴 영수증 사업자번호와 영수증 정보를 함께 넣어 만든다")
     void hashesBusinessNumberWithReceiptFields() {
         givenTokenBakeryAndVisit();
 
         verificationService.doVerification(USER_ID, STORE_ID, request(12000));
 
-        verify(receiptHashService).create("123-45-67890", RECEIPT_NUM, LocalDate.of(2026, 9, 5), 12000);
+        verify(receiptHashService).create(BUSINESS_NUMBER, RECEIPT_NUM, LocalDate.of(2026, 9, 5), 12000);
     }
 
     @Test
     @DisplayName("없는 빵집이면 토큰만 쓰고 막힌다")
     void rejectsUnknownBakery() {
-        when(receiptTokenService.consumeToken(TOKEN)).thenReturn(RECEIPT_NUM);
+        when(receiptTokenService.consumeToken(TOKEN)).thenReturn(payload(Region.JUNG));
         when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> verificationService.doVerification(USER_ID, STORE_ID, request(12000)))
@@ -154,12 +158,34 @@ class VerificationServiceImplTest {
         verify(visitDetailRepository, never()).save(any());
     }
 
+    @Test
+    @DisplayName("지점 영수증이면 빵집이 실린 구가 아니라 실제로 방문한 구로 미션을 집계한다")
+    void countsMissionByRegionFromToken() {
+        givenTokenAndBakery();
+        // 빵산책에는 중구 매장만 실려 있는데 영수증은 서구 지점에서 끊긴 상황
+        when(receiptTokenService.consumeToken(TOKEN)).thenReturn(payload(Region.SEO));
+        lenient().when(receiptDuplicateChecker.isAlreadyUsed(HASH, USER_ID)).thenReturn(false);
+
+        Visit visit = Visit.create(user(), bakery());
+        ReflectionId.set(visit, 77L);
+        when(visitRepository.findForUpdate(eq(USER_ID), eq(STORE_ID))).thenReturn(Optional.of(visit));
+
+        verificationService.doVerification(USER_ID, STORE_ID, request(12000));
+
+        // 여기가 중구로 가면 서구 미션을 중구에서 완주할 수 있게 된다
+        verify(missionEvaluator).onReceiptVerified(USER_ID, Region.SEO);
+    }
+
+    private ReceiptTokenPayload payload(Region region) {
+        return new ReceiptTokenPayload(RECEIPT_NUM, BUSINESS_NUMBER, region);
+    }
+
     private VisitRequest request(int totalAmount) {
         return new VisitRequest(totalAmount, LocalDate.of(2026, 9, 5), TOKEN);
     }
 
     private void givenTokenAndBakery() {
-        when(receiptTokenService.consumeToken(TOKEN)).thenReturn(RECEIPT_NUM);
+        when(receiptTokenService.consumeToken(TOKEN)).thenReturn(payload(Region.JUNG));
         when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
         when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
         when(receiptHashService.create(any(), any(), any(), any())).thenReturn(HASH);
@@ -167,7 +193,7 @@ class VerificationServiceImplTest {
 
     private Visit givenTokenBakeryAndVisit() {
         givenTokenAndBakery();
-        lenient().when(visitDetailRepository.existsByReceiptHash(HASH)).thenReturn(false);
+        lenient().when(receiptDuplicateChecker.isAlreadyUsed(HASH, USER_ID)).thenReturn(false);
 
         Visit visit = Visit.create(user(), bakery());
         ReflectionId.set(visit, 77L);
@@ -184,7 +210,7 @@ class VerificationServiceImplTest {
                 .id(STORE_ID)
                 .name("성심당")
                 .region(Region.JUNG)
-                .businessNumber("123-45-67890")
+                .businessNumber(BUSINESS_NUMBER)
                 .build();
     }
 

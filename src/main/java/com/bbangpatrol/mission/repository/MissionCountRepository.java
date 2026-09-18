@@ -11,13 +11,15 @@ public interface MissionCountRepository extends Repository<MissionProgress, Long
     @Query("SELECT COUNT(vd) FROM VisitDetail vd WHERE vd.visit.user.id = :userId")
     long countReceipts(Long userId);
 
+    // 지도에 실린 빵집의 구가 아니라 영수증을 실제로 끊은 구로 센다.
+    // 안 그러면 중구 지점 영수증이 대덕구 미션을 채운다
     @Query("SELECT COUNT(vd) FROM VisitDetail vd " +
-            "WHERE vd.visit.user.id = :userId AND vd.visit.bakery.region = :region")
+            "WHERE vd.visit.user.id = :userId AND vd.region = :region")
     long countReceiptsByRegion(Long userId, Region region);
 
-    @Query("SELECT COUNT(DISTINCT v.bakery.region) FROM Visit v " +
-            "WHERE v.user.id = :userId " +
-            "AND v.bakery.region IS NOT NULL AND v.bakery.region <> :excluded")
+    @Query("SELECT COUNT(DISTINCT vd.region) FROM VisitDetail vd " +
+            "WHERE vd.visit.user.id = :userId " +
+            "AND vd.region IS NOT NULL AND vd.region <> :excluded")
     long countDistinctRegions(Long userId, Region excluded);
 
     @Query("SELECT COUNT(DISTINCT v.bakery.id) FROM Visit v WHERE v.user.id = :userId")

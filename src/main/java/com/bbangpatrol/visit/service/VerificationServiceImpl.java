@@ -5,6 +5,7 @@ import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.mission.service.MissionEvaluator;
+import com.bbangpatrol.ocr.dto.ReceiptTokenPayload;
 import com.bbangpatrol.ocr.service.ReceiptTokenService;
 import com.bbangpatrol.point.service.PointService;
 import com.bbangpatrol.user.repository.UserRepository;
@@ -28,6 +29,7 @@ public class VerificationServiceImpl implements VerificationService {
 
     private final ReceiptTokenService receiptTokenService;
     private final ReceiptHashService receiptHashService;
+    private final ReceiptDuplicateChecker receiptDuplicateChecker;
     private final PointService pointService;
     private final MissionEvaluator missionEvaluator;
 
@@ -42,9 +44,9 @@ public class VerificationServiceImpl implements VerificationService {
     public VisitResponse doVerification(Long userId, Long storeId, VisitRequest request) {
         log.info("[Verification Service] 사용자 영수증 인증 처리 시작. userId: {}, storeId: {}", userId, storeId);
 
-        // 토큰 전달해서 사용자 영수증 승인번호 가져오기
-        String receiptNum = receiptTokenService.consumeToken(request.getVerificationToken());
-        log.info("[Verification Service] 토큰을 통해 조회한 사용자의 영수증 승인번호 조회 {}", receiptNum);
+        // 토큰 전달해서 OCR 단계에서 확정한 승인번호 / 사업자번호 / 지역 가져오기
+        ReceiptTokenPayload payload = receiptTokenService.consumeToken(request.getVerificationToken());
+        log.info("[Verification Service] 토큰을 통해 조회한 사용자의 영수증 승인번호 조회 {}", payload.receiptNum());
 
         // 2. 빵집 조회
         Bakery bakery = bakeryRepository.findById(storeId)
@@ -56,16 +58,17 @@ public class VerificationServiceImpl implements VerificationService {
         userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
-        // 4. 사업자번호 + 승인번호 + 날짜 + 금액으로 영수증 해시 생성
+        // 4. 사업자번호 + 승인번호 + 날짜 + 금액으로 영수증 해시 생성.
+        //    사업자번호는 OCR 단계에서 매칭한 영수증의 실제 번호라야 지점별로 해시가 갈린다
         String receiptHash = receiptHashService.create(
-                bakery.getBusinessNumber(),
-                receiptNum,
+                payload.businessNumber(),
+                payload.receiptNum(),
                 request.getDate(),
                 request.getTotalAmount()
         );
 
-        // DB 중복 조회해서 없으면 인증 처리. 근데 OCR 단계에서도 승인번호 통해서 중복 확인 해봐야 할듯????
-        if (visitDetailRepository.existsByReceiptHash(receiptHash)) {
+        // DB 중복 조회해서 없으면 인증 처리. 시연용으로 열어두면 사용자별로만 막는다
+        if (receiptDuplicateChecker.isAlreadyUsed(receiptHash, userId)) {
             throw new ApiException(ErrorCode.RECEIPT_ALREADY_USED);
         }
 
@@ -82,6 +85,9 @@ public class VerificationServiceImpl implements VerificationService {
                 .totalAmount(request.getTotalAmount())
                 .visitedAt(request.getDate())
                 .receiptHash(receiptHash)
+                // 구별 미션은 지도에 실린 구가 아니라 여기 적힌 구로 집계된다
+                .region(payload.region())
+                .receiptBusinessNumber(payload.businessNumber())
                 .createdAt(LocalDateTime.now())
                 .visit(visit)
                 .build();
@@ -94,8 +100,9 @@ public class VerificationServiceImpl implements VerificationService {
         // 포인트 적립
         pointService.updatePoint(userId, point, true);
 
-        // 영수증 / 빵집 방문 미션 진행도 갱신
-        missionEvaluator.onReceiptVerified(userId, bakery.getRegion());
+        // 영수증 / 빵집 방문 미션 진행도 갱신.
+        // 지점 영수증이면 빵집이 실린 구가 아니라 실제로 방문한 구로 집계한다
+        missionEvaluator.onReceiptVerified(userId, payload.region());
 
         return new VisitResponse(
                 visit.getId(),

@@ -1,6 +1,10 @@
 package com.bbangpatrol.ocr.service;
 
+import com.bbangpatrol.bakery.entity.Bakery;
+import com.bbangpatrol.bakery.entity.BakeryBusinessNumber;
+import com.bbangpatrol.bakery.repository.BakeryBusinessNumberRepository;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
+import com.bbangpatrol.common.enums.Region;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.ocr.client.GeminiClient;
@@ -8,7 +12,8 @@ import com.bbangpatrol.ocr.client.OcrClient;
 import com.bbangpatrol.ocr.client.ReceiptImageValidator;
 import com.bbangpatrol.ocr.dto.OcrResponse;
 import com.bbangpatrol.ocr.dto.ReceiptParseResult;
-import com.bbangpatrol.visit.repository.VisitDetailRepository;
+import com.bbangpatrol.ocr.dto.ReceiptTokenPayload;
+import com.bbangpatrol.visit.service.ReceiptDuplicateChecker;
 import com.bbangpatrol.visit.service.ReceiptHashService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,8 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 
 @Service
 @Slf4j
@@ -28,10 +33,11 @@ public class OcrServiceImpl implements OcrService {
     private final OcrClient ocrClient;
     private final GeminiClient geminiClient;
     private final BakeryRepository bakeryRepository;
+    private final BakeryBusinessNumberRepository bakeryBusinessNumberRepository;
 
     private final ReceiptTokenService receiptTokenService;
     private final ReceiptHashService receiptHashService;
-    private final VisitDetailRepository visitDetailRepository;
+    private final ReceiptDuplicateChecker receiptDuplicateChecker;
 
     // 영수증에서 정보를 추출하기 위한 메서드
     @Override
@@ -65,37 +71,35 @@ public class OcrServiceImpl implements OcrService {
         validateReceiptDate(parsedResult.date());
         log.info("[OCR SERVICE] 영수증 만료 기한 검증 통과!!");
 
-        // storeId를 통해서 영수증 정보에서 해당 가게를 진짜 방문한 건지 확인
-        String businessNumber = bakeryRepository
-                .findBusinessNumberByStoreId(storeId)
+        Bakery bakery = bakeryRepository.findById(storeId)
                 .orElseThrow(() -> new ApiException(ErrorCode.BAKERY_NOT_FOUND));
 
-        if(!normalize(businessNumber)
-                .equals(normalize(parsedResult.businessNumber()))) {
-            throw new ApiException(ErrorCode.RECEIPT_STORE_MISMATCH);
-        }
-        log.info("[OCR SERVICE] 영수증의 사업자 번호와 사용자가 선택한 가게 일치!!");
+        // 대표 사업자번호 또는 등록해 둔 지점 사업자번호와 맞는지 확인
+        BusinessNumberMatch match = matchBusinessNumber(bakery, parsedResult);
+        log.info("[OCR SERVICE] 영수증의 사업자 번호와 사용자가 선택한 가게 일치!! 집계 지역: {}", match.region());
 
-
+        // 해시는 DB 대표번호가 아니라 영수증에 찍힌 번호로 만든다. 지점이 다르면 다른 해시가 나와야 한다
         String receiptHash = receiptHashService.create(
-                businessNumber,
+                match.businessNumber(),
                 parsedResult.receiptNum(),
                 LocalDate.parse(parsedResult.date()),
                 parsedResult.amount()
         );
 
-        if (visitDetailRepository.existsByReceiptHash(receiptHash)) {
+        if (receiptDuplicateChecker.isAlreadyUsed(receiptHash, userId)) {
             log.info("[OCR SERVICE] 영수증 사용 가능 여부 확인 완료 - 이미 사용된 영수증...");
             throw new ApiException(ErrorCode.RECEIPT_ALREADY_USED);
         }
         log.info("[OCR SERVICE] 영수증 사용 가능 여부 확인 완료 - 통과!!");
 
-
-
         // 여기까지 왔으면 인증도 된 거니까 영수증 승인번호 토큰으로 발급해서 전달(유효기간 10분짜리임)
         String verificationToken = receiptTokenService.issueToken(
                 userId,
-                parsedResult.receiptNum()
+                new ReceiptTokenPayload(
+                        parsedResult.receiptNum(),
+                        match.businessNumber(),
+                        match.region()
+                )
         );
         log.info("[OCR SERVICE] 영수증 인증을 위한 토큰 발행!!");
 
@@ -106,6 +110,69 @@ public class OcrServiceImpl implements OcrService {
                 parsedResult.menu(),
                 verificationToken
         );
+    }
+
+
+    // ----- 사업자번호 매칭을 위한 메서드 ----- //
+
+    // 해시에 쓸 사업자번호와, 미션 집계에 쓸 실제 방문 지역
+    private record BusinessNumberMatch(String businessNumber, Region region) {
+    }
+
+    private BusinessNumberMatch matchBusinessNumber(Bakery bakery, ReceiptParseResult parsed) {
+        String receiptNumber = normalize(parsed.businessNumber());
+
+        // 빵산책 지도에 실린 대표 매장
+        if (bakery.getBusinessNumber() != null
+                && normalize(bakery.getBusinessNumber()).equals(receiptNumber)) {
+            return new BusinessNumberMatch(bakery.getBusinessNumber(), bakery.getRegion());
+        }
+
+        // 같은 매장으로 인정하기로 등록해 둔 지점
+        List<BakeryBusinessNumber> branches = bakeryBusinessNumberRepository.findAllByBakeryId(bakery.getId());
+        for (BakeryBusinessNumber branch : branches) {
+            if (normalize(branch.getBusinessNumber()).equals(receiptNumber)) {
+                log.info("[OCR SERVICE] 지점 영수증으로 인증한다. storeId: {}, 지점: {}",
+                        bakery.getId(), branch.getBranchName());
+                // 지점의 구가 따로 있으면 그 구로 미션을 집계한다
+                return new BusinessNumberMatch(
+                        branch.getBusinessNumber(),
+                        branch.getRegion() != null ? branch.getRegion() : bakery.getRegion()
+                );
+            }
+        }
+
+        // 대표번호도 지점도 없으면 애초에 인증이 불가능한 빵집이다. 가게가 없다고 하면 원인을 못 찾는다
+        if (bakery.getBusinessNumber() == null && branches.isEmpty()) {
+            log.warn("[OCR SERVICE] 사업자번호가 등록되지 않은 빵집이다. storeId: {}", bakery.getId());
+            throw new ApiException(ErrorCode.BAKERY_BUSINESS_NUMBER_MISSING);
+        }
+
+        // 상호가 같은 브랜드로 보이면 미등록 지점일 가능성이 높다.
+        // 통과시키지는 않고, 어떤 지점을 등록해야 하는지 로그로 남긴다
+        if (looksLikeSameBrand(parsed.bakeryName(), bakery.getName())) {
+            log.warn("[OCR SERVICE] 미등록 지점으로 추정된다. storeId: {}, 상호: {}, 사업자번호: {}",
+                    bakery.getId(), parsed.bakeryName(), parsed.businessNumber());
+            throw new ApiException(ErrorCode.RECEIPT_BRANCH_NOT_REGISTERED);
+        }
+
+        throw new ApiException(ErrorCode.RECEIPT_STORE_MISMATCH);
+    }
+
+    // 에러 메시지를 고르는 용도로만 쓴다. 여기서 참이 나와도 인증이 통과하지는 않는다
+    private boolean looksLikeSameBrand(String receiptName, String bakeryName) {
+        if (receiptName == null || bakeryName == null) {
+            return false;
+        }
+
+        String receipt = receiptName.replaceAll("\\s+", "");
+        String registered = bakeryName.replaceAll("\\s+", "");
+
+        if (receipt.isEmpty() || registered.isEmpty()) {
+            return false;
+        }
+
+        return receipt.contains(registered) || registered.contains(receipt);
     }
 
 
