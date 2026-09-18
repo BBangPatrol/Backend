@@ -53,7 +53,7 @@ public class UserController {
     }
 
     @GetMapping("/bread-collections")
-    public ApiResponse<UserResponseDTO.VisitedBakeryListDTO> getBakeryList(@AuthenticationPrincipal Long userId) {
-        return ApiResponse.onSuccess(userService.getBakeryList(userId));
+    public ApiResponse<UserResponseDTO.VisitedBakeryListDTO> getBakeryList(@AuthenticationPrincipal Long userId, @RequestParam(required = false, defaultValue = "") String query) {
+        return ApiResponse.onSuccess(userService.getBakeryList(userId, query));
     }
 }

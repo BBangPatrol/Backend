@@ -29,13 +29,15 @@ public interface VisitDetailRepository extends JpaRepository<VisitDetail, Long> 
                                      Pageable pageable);
 
     // 한 방에 가져온다. VisitDetail.review 는 역방향 @OneToOne 이라 LAZY 여도 건건이 조회된다
+    // query 가 빈 문자열이면 가게 이름 조건을 건너뛴다
     @Query("""
         select vd from VisitDetail vd
         join fetch vd.visit v
-        join fetch v.bakery
+        join fetch v.bakery b
         left join fetch vd.review
         where v.user.id = :userId
+          and (:query = '' or b.name like concat('%', :query, '%'))
         order by vd.visitedAt desc, vd.id desc
     """)
-    List<VisitDetail> findHistoryByUserId(@Param("userId") Long userId);
+    List<VisitDetail> findHistoryByUserId(@Param("userId") Long userId, @Param("query") String query);
 }

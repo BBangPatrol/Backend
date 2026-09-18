@@ -115,7 +115,11 @@ public class UserResponseDTO {
         String bakeryName;
         Integer rating;
         String content;
+        List<Long> keywords;
+        List<String> images;
+        List<String> thumbnails;
         Integer likeCount;
+        Boolean isLike;
         LocalDateTime date;
     }
 
