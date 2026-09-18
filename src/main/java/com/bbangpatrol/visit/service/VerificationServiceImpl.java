@@ -28,6 +28,7 @@ public class VerificationServiceImpl implements VerificationService {
 
     private final ReceiptTokenService receiptTokenService;
     private final ReceiptHashService receiptHashService;
+    private final ReceiptDuplicateChecker receiptDuplicateChecker;
     private final PointService pointService;
     private final MissionEvaluator missionEvaluator;
 
@@ -64,8 +65,8 @@ public class VerificationServiceImpl implements VerificationService {
                 request.getTotalAmount()
         );
 
-        // DB 중복 조회해서 없으면 인증 처리. 근데 OCR 단계에서도 승인번호 통해서 중복 확인 해봐야 할듯????
-        if (visitDetailRepository.existsByReceiptHash(receiptHash)) {
+        // DB 중복 조회해서 없으면 인증 처리. 시연용으로 열어두면 사용자별로만 막는다
+        if (receiptDuplicateChecker.isAlreadyUsed(receiptHash, userId)) {
             throw new ApiException(ErrorCode.RECEIPT_ALREADY_USED);
         }
 

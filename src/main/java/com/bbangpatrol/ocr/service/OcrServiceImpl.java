@@ -8,7 +8,7 @@ import com.bbangpatrol.ocr.client.OcrClient;
 import com.bbangpatrol.ocr.client.ReceiptImageValidator;
 import com.bbangpatrol.ocr.dto.OcrResponse;
 import com.bbangpatrol.ocr.dto.ReceiptParseResult;
-import com.bbangpatrol.visit.repository.VisitDetailRepository;
+import com.bbangpatrol.visit.service.ReceiptDuplicateChecker;
 import com.bbangpatrol.visit.service.ReceiptHashService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +31,7 @@ public class OcrServiceImpl implements OcrService {
 
     private final ReceiptTokenService receiptTokenService;
     private final ReceiptHashService receiptHashService;
-    private final VisitDetailRepository visitDetailRepository;
+    private final ReceiptDuplicateChecker receiptDuplicateChecker;
 
     // 영수증에서 정보를 추출하기 위한 메서드
     @Override
@@ -84,7 +84,7 @@ public class OcrServiceImpl implements OcrService {
                 parsedResult.amount()
         );
 
-        if (visitDetailRepository.existsByReceiptHash(receiptHash)) {
+        if (receiptDuplicateChecker.isAlreadyUsed(receiptHash, userId)) {
             log.info("[OCR SERVICE] 영수증 사용 가능 여부 확인 완료 - 이미 사용된 영수증...");
             throw new ApiException(ErrorCode.RECEIPT_ALREADY_USED);
         }
