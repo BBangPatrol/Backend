@@ -53,6 +53,9 @@ public enum ErrorCode implements BaseErrorCode{
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "REVIEW404", "리뷰가 존재하지 않습니다."),
     VISIT_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "REVIEW400", "리뷰를 작성하려면 영수증 인증이 필요합니다."),
 
+    // 시연용 사진에 관한 에러
+    INVALID_DEMO_CODE(HttpStatus.FORBIDDEN, "DEMO403", "시연 코드가 올바르지 않습니다."),
+
     // R2 에러,
     R2_IO_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "R2500" , "이미지 I/O 요청이 실패했습니다." ),
     INSUFFICIENT_POINT(HttpStatus.BAD_REQUEST, "POINT400", "포인트가 부족합니다."),
