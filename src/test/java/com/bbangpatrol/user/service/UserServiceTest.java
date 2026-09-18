@@ -76,10 +76,10 @@ class UserServiceTest {
     void loadsHistoryInASingleQuery() {
         givenHistory(visitDetail(LocalDate.of(2026, 9, 5), null));
 
-        userService.getBakeryList(USER_ID);
+        userService.getBakeryList(USER_ID, "");
 
         // Visit -> VisitDetail -> Review 를 하나씩 따라가면 방문 수만큼 쿼리가 늘어난다
-        verify(visitDetailRepository).findHistoryByUserId(USER_ID);
+        verify(visitDetailRepository).findHistoryByUserId(USER_ID, "");
     }
 
     @Test
@@ -87,7 +87,7 @@ class UserServiceTest {
     void includesReviewOfVisit() {
         givenHistory(visitDetail(LocalDate.of(2026, 9, 5), review(null)));
 
-        UserResponseDTO.VisitedBakeryListDTO result = userService.getBakeryList(USER_ID);
+        UserResponseDTO.VisitedBakeryListDTO result = userService.getBakeryList(USER_ID, "");
 
         assertThat(result.getVisits().get(0))
                 .extracting(UserResponseDTO.VisitBakeryDTO::getStoreId,
@@ -102,7 +102,7 @@ class UserServiceTest {
     void hidesSoftDeletedReview() {
         givenHistory(visitDetail(LocalDate.of(2026, 9, 5), review(LocalDateTime.now())));
 
-        UserResponseDTO.VisitedBakeryListDTO result = userService.getBakeryList(USER_ID);
+        UserResponseDTO.VisitedBakeryListDTO result = userService.getBakeryList(USER_ID, "");
 
         // 방문 자체는 남고 리뷰만 빠진다
         assertThat(result.getVisits()).hasSize(1);
@@ -135,7 +135,7 @@ class UserServiceTest {
 
     private void givenHistory(VisitDetail... details) {
         lenient().when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user()));
-        when(visitDetailRepository.findHistoryByUserId(USER_ID)).thenReturn(List.of(details));
+        when(visitDetailRepository.findHistoryByUserId(USER_ID, "")).thenReturn(List.of(details));
     }
 
     private User user() {

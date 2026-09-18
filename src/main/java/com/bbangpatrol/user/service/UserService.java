@@ -11,7 +11,10 @@ import com.bbangpatrol.item.repository.UserItemRepository;
 import com.bbangpatrol.mission.entity.MissionProgress;
 import com.bbangpatrol.point.entity.Point;
 import com.bbangpatrol.point.repository.PointRepository;
+import com.bbangpatrol.review.entity.Keyword;
 import com.bbangpatrol.review.entity.Review;
+import com.bbangpatrol.review.entity.ReviewImage;
+import com.bbangpatrol.review.entity.ReviewKeyword;
 import com.bbangpatrol.review.repository.ReviewLikeRepository;
 import com.bbangpatrol.review.repository.ReviewRepository;
 import com.bbangpatrol.user.dto.UserRequestDTO;
@@ -181,7 +184,11 @@ public class UserService {
                         .bakeryName(review.getBakery().getName())
                         .rating(review.getRating())
                         .content(review.getContent())
+                        .keywords(review.getReviewKeywords().stream().map(ReviewKeyword::getKeyword).map(Keyword::getId).toList())
+                        .images(review.getReviewImages().stream().map(ReviewImage::getImageUrl).map(r2Service::getPublicUrl).toList())
+                        .thumbnails(review.getReviewImages().stream().map(ReviewImage::getThumbnailUrl).map(r2Service::getPublicUrl).toList())
                         .likeCount(review.getLikeCount())
+                        .isLike(reviewLikeRepository.findByUserAndReview(user, review) != null)
                         .date(review.getCreatedAt())
                         .build())
                 .toList();
@@ -200,10 +207,10 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public UserResponseDTO.VisitedBakeryListDTO getBakeryList(Long userId) {
+    public UserResponseDTO.VisitedBakeryListDTO getBakeryList(Long userId, String query) {
         getUser(userId);
 
-        List<UserResponseDTO.VisitBakeryDTO> data = visitDetailRepository.findHistoryByUserId(userId).stream()
+        List<UserResponseDTO.VisitBakeryDTO> data = visitDetailRepository.findHistoryByUserId(userId, query).stream()
                 .map(visitDetail -> {
                     Bakery bakery = visitDetail.getVisit().getBakery();
                     // 링크가 남은 삭제 리뷰가 새어 나가지 않게 한 번 더 본다
