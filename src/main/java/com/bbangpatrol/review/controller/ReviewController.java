@@ -23,10 +23,12 @@ public class ReviewController {
 
     @GetMapping
     public ResponseEntity<ApiResponse> getReviews(
+            // 비로그인도 볼 수 있는 API 라 토큰이 없으면 null 이 들어온다
+            @AuthenticationPrincipal Long userId,
             @PathVariable long storeId,
             @RequestParam(required = false, defaultValue = "0") int page
     ) {
-        ReviewListResponse reviews = reviewService.getReview(storeId, page);
+        ReviewListResponse reviews = reviewService.getReview(storeId, page, userId);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.onSuccess(
                 HttpStatus.OK, "요청이 성공적입니다.", reviews));
     }

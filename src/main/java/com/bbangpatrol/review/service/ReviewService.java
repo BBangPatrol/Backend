@@ -34,6 +34,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -96,7 +97,8 @@ public class ReviewService {
         return review;
     }
 
-    public ReviewListResponse getReview(long storeId, int page) {
+    // userId 는 비로그인 조회면 null 이다
+    public ReviewListResponse getReview(long storeId, int page, Long userId) {
         // PageRequest.of 가 음수에 IllegalArgumentException 을 던져 500 이 된다
         if (page < 0) throw new ApiException(ErrorCode.BAD_REQUEST);
 
@@ -132,6 +134,11 @@ public class ReviewService {
                         )
                 ));
 
+        // 로그인한 사용자가 좋아요를 누른 리뷰만 한 번에 조회한다
+        Set<Long> likedReviewIds = (userId == null || reviewIds.isEmpty())
+                ? Set.of()
+                : Set.copyOf(reviewLikeRepository.findLikedReviewIds(userId, reviewIds));
+
         Map<Long, List<Long>> keywordMap = reviewKeywordRepository.findAllByReviewIdIn(reviewIds).stream()
                 .collect(Collectors.groupingBy(
                         k -> k.getReview().getId(),
@@ -153,6 +160,7 @@ public class ReviewService {
                     imageMap.getOrDefault(review.getId(), List.of()),
                     thumbnailMap.getOrDefault(review.getId(), List.of()),
                     review.getLikeCount(),
+                    likedReviewIds.contains(review.getId()),
                     review.getCreatedAt()
                 )).toList();
 

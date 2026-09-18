@@ -24,6 +24,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -34,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -131,6 +135,21 @@ class UserServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BAD_REQUEST);
 
         verify(reviewRepository, never()).findMyReviews(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("내 리뷰 목록은 좋아요 여부를 쿼리 한 번으로 확인한다")
+    void loadsMyReviewLikesInASingleQuery() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user()));
+        when(reviewRepository.findMyReviews(eq(USER_ID), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(review(null)), PageRequest.of(0, 5), 1));
+        when(reviewLikeRepository.findLikedReviewIds(USER_ID, List.of(55L))).thenReturn(List.of(55L));
+
+        UserResponseDTO.ReviewHistoryDTO result = userService.getMyReviews(USER_ID, 0);
+
+        assertThat(result.getReviews()).extracting(UserResponseDTO.ReviewDTO::getIsLike).containsExactly(true);
+        // 리뷰마다 한 건씩 확인하면 페이지 크기만큼 쿼리가 늘어난다
+        verify(reviewLikeRepository, never()).findByUserAndReview(any(), any());
     }
 
     private void givenHistory(VisitDetail... details) {
