@@ -178,7 +178,15 @@ public class UserService {
         User user = getUser(userId);
 
         Page<Review> reviews = reviewRepository.findMyReviews(userId, PageRequest.of(page, 5));
-        List<UserResponseDTO.ReviewDTO> reviewHistory = reviews.getContent().stream()
+        List<Review> content = reviews.getContent();
+
+        // N+1 방지 코드로 변경
+        List<Long> reviewIds = content.stream().map(Review::getId).toList();
+        Set<Long> likedReviewIds = reviewIds.isEmpty()
+                ? Set.of()
+                : Set.copyOf(reviewLikeRepository.findLikedReviewIds(userId, reviewIds));
+
+        List<UserResponseDTO.ReviewDTO> reviewHistory = content.stream()
                 .map(review -> UserResponseDTO.ReviewDTO.builder()
                         .bakeryId(review.getBakery().getId())
                         .bakeryName(review.getBakery().getName())
@@ -188,7 +196,7 @@ public class UserService {
                         .images(review.getReviewImages().stream().map(ReviewImage::getImageUrl).map(r2Service::getPublicUrl).toList())
                         .thumbnails(review.getReviewImages().stream().map(ReviewImage::getThumbnailUrl).map(r2Service::getPublicUrl).toList())
                         .likeCount(review.getLikeCount())
-                        .isLike(reviewLikeRepository.findByUserAndReview(user, review) != null)
+                        .isLike(likedReviewIds.contains(review.getId()))
                         .date(review.getCreatedAt())
                         .build())
                 .toList();

@@ -16,6 +16,8 @@ public record ReviewResponse(
         // 목록 렌더링용 썸네일(최대 400px). images 와 같은 순서다
         List<String> thumbnails,
         int likeCount,
+        // 조회한 사용자가 이 리뷰에 좋아요를 눌렀는지. 비로그인이면 항상 false
+        boolean isLike,
         LocalDateTime date
 ) {
 

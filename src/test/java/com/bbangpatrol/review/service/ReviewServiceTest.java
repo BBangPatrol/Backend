@@ -8,6 +8,7 @@ import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.mission.service.MissionEvaluator;
 import com.bbangpatrol.review.dto.ReviewCreatedRequest;
 import com.bbangpatrol.review.dto.ReviewListResponse;
+import com.bbangpatrol.review.dto.ReviewResponse;
 import com.bbangpatrol.review.dto.ReviewUpdatedRequest;
 import com.bbangpatrol.review.entity.Review;
 import com.bbangpatrol.review.repository.KeywordRepository;
@@ -40,6 +41,7 @@ import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -181,7 +183,7 @@ class ReviewServiceTest {
     @Test
     @DisplayName("페이지 번호가 음수면 500 이 아니라 400 이다")
     void rejectsNegativePage() {
-        assertThatThrownBy(() -> reviewService.getReview(STORE_ID, -1))
+        assertThatThrownBy(() -> reviewService.getReview(STORE_ID, -1, USER_ID))
                 .isInstanceOf(ApiException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BAD_REQUEST);
 
@@ -197,7 +199,7 @@ class ReviewServiceTest {
         when(reviewImageRepository.findAllByReviewIdIn(any())).thenReturn(List.of());
         when(reviewKeywordRepository.findAllByReviewIdIn(any())).thenReturn(List.of());
 
-        ReviewListResponse response = reviewService.getReview(STORE_ID, 1);
+        ReviewListResponse response = reviewService.getReview(STORE_ID, 1, null);
 
         assertThat(response.reviews()).hasSize(20);
         assertThat(response.count()).isEqualTo(45);
@@ -216,10 +218,39 @@ class ReviewServiceTest {
         when(reviewImageRepository.findAllByReviewIdIn(any())).thenReturn(List.of());
         when(reviewKeywordRepository.findAllByReviewIdIn(any())).thenReturn(List.of());
 
-        ReviewListResponse response = reviewService.getReview(STORE_ID, 2);
+        ReviewListResponse response = reviewService.getReview(STORE_ID, 2, null);
 
         assertThat(response.pageInfo().hasNext()).isFalse();
         assertThat(response.pageInfo().totalPages()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("로그인한 사용자가 좋아요를 누른 리뷰는 isLike 가 true 다")
+    void marksReviewsLikedByViewer() {
+        Page<Review> page = new PageImpl<>(List.of(reviewOf(1L), reviewOf(2L)), PageRequest.of(0, 20), 2);
+        when(reviewRepository.findPageByBakeryId(eq(STORE_ID), any(Pageable.class))).thenReturn(page);
+        when(reviewImageRepository.findAllByReviewIdIn(any())).thenReturn(List.of());
+        when(reviewKeywordRepository.findAllByReviewIdIn(any())).thenReturn(List.of());
+        when(reviewLikeRepository.findLikedReviewIds(eq(USER_ID), any())).thenReturn(List.of(2L));
+
+        ReviewListResponse response = reviewService.getReview(STORE_ID, 0, USER_ID);
+
+        assertThat(response.reviews()).extracting(ReviewResponse::id, ReviewResponse::isLike)
+                .containsExactly(tuple(1L, false), tuple(2L, true));
+    }
+
+    @Test
+    @DisplayName("비로그인 조회는 좋아요를 조회하지 않고 전부 false 로 내려준다")
+    void anonymousViewerSeesNoLikes() {
+        Page<Review> page = new PageImpl<>(List.of(reviewOf(1L)), PageRequest.of(0, 20), 1);
+        when(reviewRepository.findPageByBakeryId(eq(STORE_ID), any(Pageable.class))).thenReturn(page);
+        when(reviewImageRepository.findAllByReviewIdIn(any())).thenReturn(List.of());
+        when(reviewKeywordRepository.findAllByReviewIdIn(any())).thenReturn(List.of());
+
+        ReviewListResponse response = reviewService.getReview(STORE_ID, 0, null);
+
+        assertThat(response.reviews()).extracting(ReviewResponse::isLike).containsExactly(false);
+        verify(reviewLikeRepository, never()).findLikedReviewIds(anyLong(), any());
     }
 
     private ReviewCreatedRequest request() {
