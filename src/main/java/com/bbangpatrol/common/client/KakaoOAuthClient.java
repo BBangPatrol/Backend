@@ -36,7 +36,8 @@ public class KakaoOAuthClient {
     private final RestClient restClient = RestClient.create();
 
     public String getAccessToken(String code) { // 프론트에서 전달 받은 인가 코드를 카카오 access token으로 교환하는 메서드
-        log.info("[KakaoOAuthClient] 인가 코드를 카카오 access token으로 교환 시작 code: {}", code);
+        // 인가 코드는 로그에 남기지 않는다 (AuthServiceImpl.login 과 같은 이유)
+        log.info("[KakaoOAuthClient] 인가 코드를 카카오 access token 으로 교환 시작");
 
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", "authorization_code");

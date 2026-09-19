@@ -42,7 +42,8 @@ public class AuthServiceImpl implements AuthService {
             throw new ApiException(ErrorCode.NO_KAKAO_CODE);
         }
 
-        log.info("[AuthServiceImpl] 로그인 시도 감지, 카카오 인가 코드: {}", loginRequest.code());
+        // 인가 코드는 로그에 남기지 않는다. 한 번 쓰면 끝나는 값이지만 교환 전에 유출되면 그대로 로그인된다
+        log.info("[AuthServiceImpl] 로그인 시도 감지");
 
         // 인가 코드로 accessToken 가져오기
         String kakaoAccessToken = kakaoOAuthClient.getAccessToken(loginRequest.code());
@@ -97,7 +98,9 @@ public class AuthServiceImpl implements AuthService {
     // 토큰 재발급 관련
     @Override
     public ReissueResult reissue(String refreshToken) {
-        log.info("[AuthServiceImpl] 토큰 재발급 수행, 기존의 refresh token: {}", refreshToken);
+        // 리프레시 토큰 자체는 절대 로그에 남기지 않는다. 7일 유효한 값이라
+        // 로그를 볼 수 있는 사람이 그대로 재발급을 받을 수 있다
+        log.info("[AuthServiceImpl] 토큰 재발급 수행");
 
         if(!jwtProvider.validateToken(refreshToken)) { // 유효하지 않은 토큰일 경우
             throw new ApiException(ErrorCode.INVALID_REFRESH_TOKEN);
@@ -105,6 +108,7 @@ public class AuthServiceImpl implements AuthService {
 
         // 토큰에서 userId 추출
         Long userId = jwtProvider.getUserId(refreshToken);
+        log.info("[AuthServiceImpl] 토큰 재발급 대상 userId: {}", userId);
 
         if (!refreshTokenRepository.isValid(userId, refreshToken)) { // 기존 refresh token과 userId가 일치하지 않으면 에러
             refreshTokenRepository.delete(userId);
