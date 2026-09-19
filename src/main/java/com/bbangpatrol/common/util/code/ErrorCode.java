@@ -37,6 +37,7 @@ public enum ErrorCode implements BaseErrorCode{
     // 사진만 올리는 인증에서 가게를 특정하지 못한 경우
     RECEIPT_STORE_NOT_REGISTERED(HttpStatus.NOT_FOUND, "PARSE404-1", "빵범대에 등록되지 않은 가게의 영수증입니다."),
     RECEIPT_STORE_AMBIGUOUS(HttpStatus.CONFLICT, "PARSE409-1", "어느 가게인지 특정하지 못했습니다. 가게를 선택해 주세요."),
+    RECEIPT_ADDRESS_MISSING(HttpStatus.BAD_REQUEST, "PARSE400-11", "영수증에서 주소가 인식되지 않았습니다. 주소가 보이게 다시 촬영해 주세요."),
 
     // 빵집 관련 에러들
     RECEIPT_ALREADY_USED(HttpStatus.CONFLICT, "BAKE002", "이미 사용한 영수증입니다."),

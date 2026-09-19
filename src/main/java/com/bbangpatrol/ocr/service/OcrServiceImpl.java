@@ -83,13 +83,20 @@ public class OcrServiceImpl implements OcrService {
 
         StoreResolver.Resolution resolution = storeResolver.resolve(parsedResult);
 
-        // 후보가 여럿이면 고르지 않는다. 틀린 가게에 방문을 붙이는 것보다 가게를 고르는 기존 흐름으로 보내는 편이 낫다
-        if (resolution.isAmbiguous()) {
-            log.info("[OCR SERVICE] 가게 후보가 여럿이다. 수=" + resolution.candidates().size());
-            throw new ApiException(ErrorCode.RECEIPT_STORE_AMBIGUOUS);
-        }
         if (!resolution.isMatched()) {
-            throw new ApiException(ErrorCode.RECEIPT_STORE_NOT_REGISTERED);
+            // 못 찾은 이유마다 사용자가 할 수 있는 일이 다르다.
+            // 하나로 뭉뚱그리면 "주소를 못 읽은 것"이 "등록되지 않은 가게"로 안내돼 오해를 준다.
+            log.info("[OCR SERVICE] 가게를 특정하지 못했다. 사유={}, 후보={}",
+                    resolution.reason(), resolution.candidates().size());
+            throw new ApiException(switch (resolution.reason()) {
+                // 후보가 여럿이면 고르지 않는다. 가게를 고르는 기존 흐름으로 보내는 편이 낫다
+                case AMBIGUOUS -> ErrorCode.RECEIPT_STORE_AMBIGUOUS;
+                // 등록된 가게이긴 한데 다른 지점이다 (가게를 고르는 흐름과 같은 문구)
+                case BRANCH_MISMATCH -> ErrorCode.RECEIPT_STORE_BRANCH_MISMATCH;
+                // 재촬영하면 되는 경우다
+                case ADDRESS_UNREADABLE -> ErrorCode.RECEIPT_ADDRESS_MISSING;
+                default -> ErrorCode.RECEIPT_STORE_NOT_REGISTERED;
+            });
         }
 
         Bakery bakery = resolution.matched();

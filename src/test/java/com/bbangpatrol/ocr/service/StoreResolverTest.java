@@ -3,6 +3,7 @@ package com.bbangpatrol.ocr.service;
 import com.bbangpatrol.bakery.entity.Bakery;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.ocr.dto.ReceiptParseResult;
+import com.bbangpatrol.ocr.service.StoreResolver.Reason;
 import com.bbangpatrol.ocr.service.StoreResolver.Resolution;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -83,7 +84,7 @@ class StoreResolverTest {
                 receipt("CREATIVE MONGSIM", "대전 중구 중교로 29 1층", "816-86-02784"));
 
         assertThat(resolution.isMatched()).isFalse();
-        assertThat(resolution.isAmbiguous()).isFalse();
+        assertThat(resolution.reason()).isEqualTo(Reason.NOT_REGISTERED);
     }
 
     @Test
@@ -94,6 +95,8 @@ class StoreResolverTest {
                 receipt("하레하레 갤러리아점", "대전 서구 대덕대로 211", "368-87-03826"));
 
         assertThat(resolution.isMatched()).isFalse();
+        // "등록되지 않은 가게"가 아니라 "다른 지점"으로 안내해야 한다
+        assertThat(resolution.reason()).isEqualTo(Reason.BRANCH_MISMATCH);
     }
 
     @Test
@@ -103,15 +106,18 @@ class StoreResolverTest {
                 receipt("인동농협하나로마트", "경북 구미시 인동남길 106", "513-82-00249"));
 
         assertThat(resolution.isMatched()).isFalse();
+        assertThat(resolution.reason()).isEqualTo(Reason.NOT_REGISTERED);
         assertThat(resolution.candidates()).isEmpty();
     }
 
     @Test
-    @DisplayName("주소를 못 읽으면 번호를 모르는 가게는 특정하지 않는다")
+    @DisplayName("주소를 못 읽으면 특정하지 않되, 재촬영 안내로 구분한다")
     void doesNotResolveWithoutAddress() {
         Resolution resolution = storeResolver.resolve(receipt("연이가", null, "123-45-67890"));
 
         assertThat(resolution.isMatched()).isFalse();
+        // 등록되지 않은 가게로 안내하면 사용자는 재촬영하면 될 일을 포기한다
+        assertThat(resolution.reason()).isEqualTo(Reason.ADDRESS_UNREADABLE);
     }
 
     private ReceiptParseResult receipt(String name, String address, String businessNumber) {
