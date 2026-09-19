@@ -6,9 +6,12 @@ import com.bbangpatrol.ocr.dto.OcrResponse;
 import com.bbangpatrol.ocr.dto.ReceiptParseResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.convert.DurationStyle;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -28,9 +31,27 @@ public class GeminiClient {
     @Value("${gemini.api-key}")
     private String apiKey;
 
-    private final RestClient restClient = RestClient.builder()
-            .baseUrl("https://generativelanguage.googleapis.com")
-            .build();
+    // 타임아웃이 없으면 Gemini 가 한 번 느려질 때 요청이 영원히 매달린다.
+    // 프론트는 영수증 분석 요청을 무제한으로 기다리므로(timeout: 0) 끊어줄 쪽은 서버뿐이다.
+    // 값은 OCR 클라이언트(ocr.connect-timeout / ocr.read-timeout)와 같은 기준으로 넉넉하게 잡았다.
+    @Value("${gemini.connect-timeout:5s}")
+    private String connectTimeout;
+    @Value("${gemini.read-timeout:60s}")
+    private String readTimeout;
+
+    private RestClient restClient;
+
+    @PostConstruct
+    void initRestClient() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(DurationStyle.detectAndParse(connectTimeout));
+        factory.setReadTimeout(DurationStyle.detectAndParse(readTimeout));
+
+        restClient = RestClient.builder()
+                .baseUrl("https://generativelanguage.googleapis.com")
+                .requestFactory(factory)
+                .build();
+    }
 
     public ReceiptParseResult parseReceipt(String ocrText) {
         String prompt = """
