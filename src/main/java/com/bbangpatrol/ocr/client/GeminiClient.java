@@ -39,6 +39,7 @@ public class GeminiClient {
                     영수증에서 아래 정보만 추출하라.
             
                     - bakeryName: 매장명 또는 상호명
+                    - address: 매장 주소
                     - date: 실제 결제 일자
                     - amount: 실제 최종 결제 금액
                     - menu: 실제 구매한 상품명 목록
@@ -55,7 +56,15 @@ public class GeminiClient {
                     [bakeryName]
                     - 매장명, 상호명, 업체명에 해당하는 값을 사용한다.
                     - 주소, 대표자명, 사업자번호는 bakeryName으로 사용하지 않는다.
-            
+
+                    [address]
+                    - 영수증에 표시된 매장(가맹점)의 주소를 반환한다.
+                    - 도로명 주소가 있으면 도로명 주소를 우선 사용하고, 없으면 지번 주소를 사용한다.
+                    - 시/도, 구, 도로명, 건물번호가 모두 포함되도록 한 줄의 문자열로 반환한다.
+                    - 층수나 호수처럼 상세 주소가 함께 있으면 포함해도 된다.
+                    - 카드사 주소, 본사 주소로 명시된 값은 사용하지 않는다.
+                    - 확실하게 식별할 수 없으면 null을 반환한다.
+
                     [date]
                     - 실제 결제가 이루어진 날짜를 사용한다.
                     - YYYY-MM-DD 형식으로 반환한다.
@@ -111,6 +120,9 @@ public class GeminiClient {
                                         "bakeryName", Map.of(
                                                 "type", List.of("string", "null")
                                         ),
+                                        "address", Map.of(
+                                                "type", List.of("string", "null")
+                                        ),
                                         "date", Map.of(
                                                 "type", List.of("string", "null")
                                         ),
@@ -129,6 +141,7 @@ public class GeminiClient {
                                 ),
                                 "required", List.of(
                                         "bakeryName",
+                                        "address",
                                         "date",
                                         "amount",
                                         "menu",

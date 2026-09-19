@@ -69,15 +69,6 @@ public interface BakeryRepository extends JpaRepository<Bakery, Long> {
             """, nativeQuery = true)
     List<Bakery> findHotBakeries();
 
-    @Query("""
-            select b.businessNumber
-            from Bakery b
-            where b.id = :storeId
-            """)
-    Optional<String> findBusinessNumberByStoreId(
-            @Param("storeId") Long storeId
-    );
-
     /**
      * 평점은 리뷰에서 계산하지 않고 bakery.avg_rating 에 저장된 값을 그대로 내려준다(V9 시드 주석 참고).
      * 그래서 리뷰가 바뀔 때마다 이 메서드로 그 행을 다시 채운다.

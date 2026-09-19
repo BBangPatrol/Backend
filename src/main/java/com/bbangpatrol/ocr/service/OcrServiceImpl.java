@@ -1,5 +1,6 @@
 package com.bbangpatrol.ocr.service;
 
+import com.bbangpatrol.bakery.entity.Bakery;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.util.code.ErrorCode;
@@ -28,6 +29,7 @@ public class OcrServiceImpl implements OcrService {
     private final OcrClient ocrClient;
     private final GeminiClient geminiClient;
     private final BakeryRepository bakeryRepository;
+    private final ReceiptStoreMatcher storeMatcher;
 
     private final ReceiptTokenService receiptTokenService;
     private final ReceiptHashService receiptHashService;
@@ -49,8 +51,9 @@ public class OcrServiceImpl implements OcrService {
         ReceiptParseResult parsedResult = geminiClient.parseReceipt(ocrText);
 
         log.info(
-                "[OCR SERVICE] LLM 파싱 결과: bakeryName={}, date={}, amount={}, menu={}, receiptNum={}",
+                "[OCR SERVICE] LLM 파싱 결과: bakeryName={}, address={}, date={}, amount={}, menu={}, receiptNum={}",
                 parsedResult.bakeryName(),
+                parsedResult.address(),
                 parsedResult.date(),
                 parsedResult.amount(),
                 parsedResult.menu(),
@@ -66,19 +69,14 @@ public class OcrServiceImpl implements OcrService {
         log.info("[OCR SERVICE] 영수증 만료 기한 검증 통과!!");
 
         // storeId를 통해서 영수증 정보에서 해당 가게를 진짜 방문한 건지 확인
-        String businessNumber = bakeryRepository
-                .findBusinessNumberByStoreId(storeId)
+        Bakery bakery = bakeryRepository
+                .findByIdAndDeletedAtIsNull(storeId)
                 .orElseThrow(() -> new ApiException(ErrorCode.BAKERY_NOT_FOUND));
 
-        if(!normalize(businessNumber)
-                .equals(normalize(parsedResult.businessNumber()))) {
-            throw new ApiException(ErrorCode.RECEIPT_STORE_MISMATCH);
-        }
-        log.info("[OCR SERVICE] 영수증의 사업자 번호와 사용자가 선택한 가게 일치!!");
-
+        verifyStore(bakery, parsedResult);
 
         String receiptHash = receiptHashService.create(
-                businessNumber,
+                bakery.getBusinessNumber(),
                 parsedResult.receiptNum(),
                 LocalDate.parse(parsedResult.date()),
                 parsedResult.amount()
@@ -106,6 +104,46 @@ public class OcrServiceImpl implements OcrService {
                 parsedResult.menu(),
                 verificationToken
         );
+    }
+
+
+    /**
+     * 영수증이 사용자가 고른 가게의 것인지 본다.
+     *
+     * 사업자번호를 아는 가게는 번호로 거른다. 다만 번호는 지점을 구분하지 못해서
+     * (여러 지점이 한 법인 번호를 쓰면 다른 지점 영수증도 통과한다) 주소가 명백히 다르면 막는다.
+     *
+     * 번호를 모르는 가게는 가이드북에만 실려 있어 대조할 번호가 없다. 이때는 상호와 주소를 함께 본다.
+     * 근거가 약한 경로이므로 둘 다 확인돼야 통과다 — 주소를 못 읽었으면(UNKNOWN) 통과시키지 않는다.
+     */
+    private void verifyStore(Bakery bakery, ReceiptParseResult parsedResult) {
+        ReceiptStoreMatcher.AddressMatch addressMatch =
+                storeMatcher.matchAddress(bakery.getAddress(), parsedResult.address());
+
+        String storedNumber = bakery.getBusinessNumber();
+        boolean knownNumber = storedNumber != null && !storedNumber.isBlank();
+
+        if (knownNumber) {
+            if (!normalize(storedNumber).equals(normalize(parsedResult.businessNumber()))) {
+                throw new ApiException(ErrorCode.RECEIPT_STORE_MISMATCH);
+            }
+            if (addressMatch == ReceiptStoreMatcher.AddressMatch.MISMATCH) {
+                log.info("[OCR SERVICE] 사업자번호는 같지만 주소가 다르다 - 다른 지점 영수증으로 보인다. bakeryId={}", bakery.getId());
+                throw new ApiException(ErrorCode.RECEIPT_STORE_MISMATCH);
+            }
+            log.info("[OCR SERVICE] 영수증의 사업자 번호와 사용자가 선택한 가게 일치!!");
+            return;
+        }
+
+        if (!storeMatcher.matchesName(bakery.getName(), parsedResult.bakeryName())) {
+            log.info("[OCR SERVICE] 사업자번호를 모르는 가게 - 상호 불일치. bakeryId={}", bakery.getId());
+            throw new ApiException(ErrorCode.RECEIPT_STORE_MISMATCH);
+        }
+        if (addressMatch != ReceiptStoreMatcher.AddressMatch.MATCH) {
+            log.info("[OCR SERVICE] 사업자번호를 모르는 가게 - 주소 확인 실패({}). bakeryId={}", addressMatch, bakery.getId());
+            throw new ApiException(ErrorCode.RECEIPT_STORE_MISMATCH);
+        }
+        log.info("[OCR SERVICE] 사업자번호를 모르는 가게 - 상호와 주소로 확인 통과!! bakeryId={}", bakery.getId());
     }
 
 

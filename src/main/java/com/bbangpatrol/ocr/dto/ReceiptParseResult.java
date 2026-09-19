@@ -2,6 +2,7 @@ package com.bbangpatrol.ocr.dto;
 
 public record ReceiptParseResult(
         String bakeryName,
+        String address,
         String date,
         Integer amount,
         String menu,
