@@ -12,6 +12,7 @@ import com.bbangpatrol.review.dto.ReviewResponse;
 import com.bbangpatrol.review.dto.ReviewUpdatedRequest;
 import com.bbangpatrol.review.entity.Keyword;
 import com.bbangpatrol.review.entity.Review;
+import com.bbangpatrol.review.entity.ReviewImage;
 import com.bbangpatrol.review.entity.ReviewKeyword;
 import com.bbangpatrol.review.repository.KeywordRepository;
 import com.bbangpatrol.review.repository.ReviewImageRepository;
@@ -34,11 +35,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -281,6 +286,37 @@ class ReviewServiceTest {
     }
 
     @Test
+    @DisplayName("리뷰 사진은 5장을 넘겨 올릴 수 없다")
+    void rejectsTooManyImagesOnCreate() throws IOException {
+        assertThatThrownBy(() -> reviewService.createReview(USER_ID, STORE_ID,
+                new ReviewCreatedRequest(5, "사진 여섯 장", null, images(6))))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TOO_MANY_REVIEW_IMAGES);
+
+        // 업로드 전에 막아야 R2 에 올렸다가 되돌리는 일이 없다
+        verify(r2Service, never()).uploadImageWithThumbnail(any(), any());
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("리뷰 수정은 남아 있는 사진까지 합쳐 5장을 넘길 수 없다")
+    void rejectsTooManyImagesOnUpdate() throws IOException {
+        Review review = reviewOf(11L);
+        when(reviewRepository.findById(11L)).thenReturn(Optional.of(review));
+        when(reviewImageRepository.findAllByReviewIdIn(List.of(11L))).thenReturn(List.of(
+                reviewImageOf(1L, review), reviewImageOf(2L, review), reviewImageOf(3L, review), reviewImageOf(4L, review)));
+
+        // 4장이 남아 있는데 2장을 더 올리면 6장이 된다
+        assertThatThrownBy(() -> reviewService.updateReview(USER_ID, 11L,
+                new ReviewUpdatedRequest(4, "사진 추가", null, null, null, images(2))))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TOO_MANY_REVIEW_IMAGES);
+
+        verify(r2Service, never()).uploadImageWithThumbnail(any(), any());
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("페이지 번호가 음수면 500 이 아니라 400 이다")
     void rejectsNegativePage() {
         assertThatThrownBy(() -> reviewService.getReview(STORE_ID, -1, USER_ID))
@@ -373,6 +409,17 @@ class ReviewServiceTest {
                 .createdAt(LocalDateTime.now())
                 .visit(Visit.create(user(), bakery()))
                 .build();
+    }
+
+    private List<MultipartFile> images(int count) {
+        return IntStream.range(0, count)
+                .mapToObj(i -> (MultipartFile) new MockMultipartFile(
+                        "reviewImages", "image" + i + ".jpg", "image/jpeg", new byte[] {1}))
+                .toList();
+    }
+
+    private ReviewImage reviewImageOf(long id, Review review) {
+        return ReviewImage.builder().id(id).review(review).imageUrl("reviews/11/" + id + ".jpg").build();
     }
 
     private Review reviewOf(long id) {

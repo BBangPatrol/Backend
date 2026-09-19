@@ -46,6 +46,8 @@ public class ReviewService {
     private final int SIZE = 20;
     private static final int MIN_RATING = 1;
     private static final int MAX_RATING = 5;
+    // 프론트의 업로드 상한(AddImages)과 같은 값
+    private static final int MAX_REVIEW_IMAGES = 5;
 
     private final UserRepository userRepository;
     private final BakeryRepository bakeryRepository;
@@ -62,6 +64,7 @@ public class ReviewService {
     @Transactional
     public Review createReview(long userId, long storeId, ReviewCreatedRequest request) {
         validateRating(request.rating(), true);
+        validateNewImageCount(request.reviewImages());
 
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(()-> new ApiException(ErrorCode.USER_NOT_FOUND));
@@ -195,6 +198,8 @@ public class ReviewService {
         // 작성자 아이디와 요청한 아이디가 다른 경우
         if (userId != originalReview.getUser().getId()) throw new ApiException(ErrorCode.USER_UNAUTHORIZE);
 
+        validateImageCountAfterUpdate(reviewId, request);
+
         Review newReview = reviewRepository.save(Review.builder()
                 .id(originalReview.getId())
                 .rating(request.rating() != null ? request.rating() : originalReview.getRating())
@@ -286,6 +291,30 @@ public class ReviewService {
         }
 
         if (rating < MIN_RATING || rating > MAX_RATING) throw new ApiException(ErrorCode.INVALID_REVIEW_RATING);
+    }
+
+    /**
+     * 리뷰 사진은 최대 MAX_REVIEW_IMAGES 장. 요청 용량 한도(장당 15MB / 요청 60MB) 안에서는
+     * 수십 장도 통과해 R2 비용과 목록 응답 크기가 늘어난다. 업로드 전에 막아야
+     * R2 에 올렸다가 되돌리는 일이 없다.
+     */
+    private void validateNewImageCount(List<MultipartFile> images) {
+        if (images != null && images.size() > MAX_REVIEW_IMAGES) {
+            throw new ApiException(ErrorCode.TOO_MANY_REVIEW_IMAGES);
+        }
+    }
+
+    // 수정은 지우기로 한 사진을 뺀 뒤의 장수로 본다. 사진을 안 올리는 요청은 쿼리도 하지 않는다
+    private void validateImageCountAfterUpdate(long reviewId, ReviewUpdatedRequest request) {
+        int adding = request.reviewImages() == null ? 0 : request.reviewImages().size();
+        if (adding == 0) return;
+
+        List<Long> deleting = request.deleteImages() == null ? List.of() : request.deleteImages();
+        long remaining = reviewImageRepository.findAllByReviewIdIn(List.of(reviewId)).stream()
+                .filter(image -> !deleting.contains(image.getId()))
+                .count();
+
+        if (remaining + adding > MAX_REVIEW_IMAGES) throw new ApiException(ErrorCode.TOO_MANY_REVIEW_IMAGES);
     }
 
     private void addKeyword(Review review, List<Keyword> keywords) {
