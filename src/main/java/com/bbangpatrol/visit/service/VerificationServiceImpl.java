@@ -45,16 +45,11 @@ public class VerificationServiceImpl implements VerificationService {
     public VisitResponse doVerification(Long userId, Long storeId, VisitRequest request) {
         log.info("[Verification Service] 사용자 영수증 인증 처리 시작. userId: {}, storeId: {}", userId, storeId);
 
-        // 토큰을 소모해서 1단계가 영수증에서 읽은 값을 가져온다.
-        // 발급받은 사용자·가게가 아니면 여기서 막힌다.
         ReceiptTokenService.ReceiptTicket ticket =
                 receiptTokenService.consumeToken(request.getVerificationToken(), userId, storeId);
         String receiptNum = ticket.receiptNum();
         log.info("[Verification Service] 토큰을 통해 조회한 사용자의 영수증 승인번호 조회 {}", receiptNum);
 
-        // 저장·지급에 쓰는 값은 요청 본문이 아니라 토큰에 담긴 값이다.
-        // 본문 값을 쓰면 금액을 바꿔 보내는 것만으로 포인트를 늘리고 중복 방지 해시를 피할 수 있다.
-        // (옛 토큰에는 금액·날짜가 없어 그때는 예전처럼 본문 값으로 돌아간다.)
         int totalAmount = ticket.amount() != null ? ticket.amount() : request.getTotalAmount();
         LocalDate visitedAt = ticket.date() != null ? ticket.date() : request.getDate();
 
@@ -78,9 +73,6 @@ public class VerificationServiceImpl implements VerificationService {
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         // 4. 사업자번호 + 승인번호 + 날짜 + 금액으로 영수증 해시 생성.
-        //    번호는 OCR 단계가 영수증에서 읽어 토큰에 실어 보낸 값을 쓴다. 가게에 저장된 번호를 쓰면
-        //    사업자번호를 모르는 가게에서 OCR 단계의 중복 검사와 다른 해시가 나온다.
-        //    (옛 토큰은 번호가 없으므로 예전처럼 가게 값으로 돌아간다)
         String receiptHash = receiptHashService.create(
                 ticket.businessNumber() != null ? ticket.businessNumber() : bakery.getBusinessNumber(),
                 receiptNum,
@@ -120,12 +112,11 @@ public class VerificationServiceImpl implements VerificationService {
             pointService.updatePoint(userId, point, true, "영수증 인증");
         }
 
-        // 영수증 / 빵집 방문 미션 진행도 갱신은 커밋 뒤에 한다.
-        // 같은 트랜잭션에서 돌리면 미션 쪽 오류가 인증 자체를 롤백시킨다 (MissionEventListener 참고)
         eventPublisher.publishEvent(new ReceiptVerifiedEvent(userId, bakery.getRegion()));
 
         return new VisitResponse(
                 visit.getId(),
+                visitDetail.getId(),
                 point
         );
     }

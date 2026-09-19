@@ -16,6 +16,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findAllByUser_IdAndDeletedAtIsNull(Long userId);
     Long countByUserAndDeletedAtIsNull(User user);
 
+    boolean existsByVisitDetail_IdAndDeletedAtIsNull(Long visitDetailId);
+
     @Query("SELECT COALESCE(SUM(r.likeCount), 0) FROM Review r WHERE r.user = :user AND r.deletedAt IS NULL")
     Long sumLikeCountByUser(User user);
 

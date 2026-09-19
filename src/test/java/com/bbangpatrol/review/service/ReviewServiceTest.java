@@ -58,9 +58,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * 리뷰는 영수증 인증한 방문 한 건에 하나씩만 달린다. 그 규칙과, 가게 리뷰 목록의 오프셋 페이징을 검증한다.
- * findReviewable 쿼리 자체(소프트 삭제된 리뷰를 비운 것으로 볼지 등)는 DB 가 있어야 확인할 수 있어
- * 여기서는 서비스가 그 쿼리에 무엇을 넘기고 결과를 어떻게 쓰는지까지만 본다.
+ * 리뷰는 영수증 인증한 방문 한 건에 하나씩만 달린다. 어느 방문인지는 클라이언트가 지정한다.
+ * 그 규칙과 가게 리뷰 목록의 오프셋 페이징을 검증한다.
  * 가게 평점 재계산도 같은 이유로(평균은 UPDATE 문 안에서 계산된다) 호출 여부까지만 본다.
  */
 @ExtendWith(MockitoExtension.class)
@@ -68,6 +67,7 @@ class ReviewServiceTest {
 
     private static final long USER_ID = 7L;
     private static final long STORE_ID = 3L;
+    private static final long VISIT_DETAIL_ID = 99L;
 
     @Mock
     private UserRepository userRepository;
@@ -94,16 +94,15 @@ class ReviewServiceTest {
     private ReviewService reviewService;
 
     @Test
-    @DisplayName("영수증 인증한 방문이 없으면 리뷰를 쓸 수 없다")
+    @DisplayName("없는 방문 기록을 가리키면 리뷰를 쓸 수 없다")
     void rejectsReviewWithoutVerifiedVisit() {
         when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
         when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
-        when(visitDetailRepository.findReviewable(eq(USER_ID), eq(STORE_ID), any(Pageable.class)))
-                .thenReturn(List.of());
+        when(visitDetailRepository.findByIdWithVisit(VISIT_DETAIL_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> reviewService.createReview(USER_ID, STORE_ID, request()))
                 .isInstanceOf(ApiException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VISIT_NOT_VERIFIED);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VISIT_NOT_FOUND);
 
         // 방문 기록이 없으면 리뷰 행 자체가 만들어지면 안 된다
         verify(reviewRepository, never()).save(any());
@@ -112,14 +111,13 @@ class ReviewServiceTest {
     }
 
     @Test
-    @DisplayName("리뷰를 쓰면 아직 리뷰가 없는 방문 기록에 연결된다")
+    @DisplayName("리뷰는 요청이 가리킨 방문 기록에 연결된다")
     void linksReviewToReviewableVisitDetail() {
         VisitDetail visitDetail = visitDetail();
 
         when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
         when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
-        when(visitDetailRepository.findReviewable(eq(USER_ID), eq(STORE_ID), any(Pageable.class)))
-                .thenReturn(List.of(visitDetail));
+        when(visitDetailRepository.findByIdWithVisit(VISIT_DETAIL_ID)).thenReturn(Optional.of(visitDetail));
         when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
 
         reviewService.createReview(USER_ID, STORE_ID, request());
@@ -130,20 +128,63 @@ class ReviewServiceTest {
     }
 
     @Test
-    @DisplayName("방문 기록은 가장 최근 한 건만 조회한다")
-    void looksUpOnlyTheLatestReviewableVisit() {
+    @DisplayName("방문 기록을 지정하지 않으면 리뷰를 쓸 수 없다")
+    void rejectsReviewWithoutVisitDetailId() {
         when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
         when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
-        when(visitDetailRepository.findReviewable(eq(USER_ID), eq(STORE_ID), any(Pageable.class)))
-                .thenReturn(List.of(visitDetail()));
-        when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        reviewService.createReview(USER_ID, STORE_ID, request());
+        assertThatThrownBy(() -> reviewService.createReview(USER_ID, STORE_ID,
+                new ReviewCreatedRequest(null, 5, "소금빵이 진짜 맛있어요", null, null)))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VISIT_DETAIL_REQUIRED);
 
-        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        verify(visitDetailRepository).findReviewable(eq(USER_ID), eq(STORE_ID), captor.capture());
-        assertThat(captor.getValue().getPageSize()).isEqualTo(1);
-        assertThat(captor.getValue().getPageNumber()).isZero();
+        verify(visitDetailRepository, never()).findByIdWithVisit(any());
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("남의 방문 기록으로는 리뷰를 쓸 수 없다")
+    void rejectsReviewOnSomeoneElseVisit() {
+        when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
+        when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
+        when(visitDetailRepository.findByIdWithVisit(VISIT_DETAIL_ID)).thenReturn(Optional.of(
+                visitDetail(User.builder().id(USER_ID + 1).name("빵돌이").build(), bakery())));
+
+        assertThatThrownBy(() -> reviewService.createReview(USER_ID, STORE_ID, request()))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_UNAUTHORIZE);
+
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("다른 가게의 방문 기록으로는 리뷰를 쓸 수 없다")
+    void rejectsReviewOnAnotherBakeryVisit() {
+        when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
+        when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
+        when(visitDetailRepository.findByIdWithVisit(VISIT_DETAIL_ID)).thenReturn(Optional.of(
+                visitDetail(user(), Bakery.builder().id(STORE_ID + 1).name("다른 빵집").build())));
+
+        assertThatThrownBy(() -> reviewService.createReview(USER_ID, STORE_ID, request()))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VISIT_STORE_MISMATCH);
+
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("이미 리뷰를 쓴 방문에는 또 쓸 수 없다")
+    void rejectsSecondReviewOnSameVisit() {
+        when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
+        when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
+        when(visitDetailRepository.findByIdWithVisit(VISIT_DETAIL_ID)).thenReturn(Optional.of(visitDetail()));
+        when(reviewRepository.existsByVisitDetail_IdAndDeletedAtIsNull(VISIT_DETAIL_ID)).thenReturn(true);
+
+        assertThatThrownBy(() -> reviewService.createReview(USER_ID, STORE_ID, request()))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REVIEW_ALREADY_EXISTS);
+
+        verify(reviewRepository, never()).save(any());
     }
 
     @Test
@@ -196,8 +237,7 @@ class ReviewServiceTest {
     void refreshesAvgRatingOnCreate() {
         when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
         when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
-        when(visitDetailRepository.findReviewable(eq(USER_ID), eq(STORE_ID), any(Pageable.class)))
-                .thenReturn(List.of(visitDetail()));
+        when(visitDetailRepository.findByIdWithVisit(VISIT_DETAIL_ID)).thenReturn(Optional.of(visitDetail()));
         when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
 
         reviewService.createReview(USER_ID, STORE_ID, request());
@@ -281,7 +321,7 @@ class ReviewServiceTest {
         // 0 점이면 가게 평점이 깎이고, 10 이상이면 avg_rating(DECIMAL(2,1)) 범위를 넘겨 작성 자체가 터진다
         for (Integer rating : new Integer[] {null, 0, -1, 6, 100}) {
             assertThatThrownBy(() -> reviewService.createReview(USER_ID, STORE_ID,
-                    new ReviewCreatedRequest(rating, "소금빵이 진짜 맛있어요", null, null)))
+                    new ReviewCreatedRequest(VISIT_DETAIL_ID, rating, "소금빵이 진짜 맛있어요", null, null)))
                     .isInstanceOf(ApiException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REVIEW_RATING);
         }
@@ -337,7 +377,7 @@ class ReviewServiceTest {
     @DisplayName("리뷰 사진은 5장을 넘겨 올릴 수 없다")
     void rejectsTooManyImagesOnCreate() throws IOException {
         assertThatThrownBy(() -> reviewService.createReview(USER_ID, STORE_ID,
-                new ReviewCreatedRequest(5, "사진 여섯 장", null, images(6))))
+                new ReviewCreatedRequest(VISIT_DETAIL_ID, 5, "사진 여섯 장", null, images(6))))
                 .isInstanceOf(ApiException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TOO_MANY_REVIEW_IMAGES);
 
@@ -438,7 +478,7 @@ class ReviewServiceTest {
     }
 
     private ReviewCreatedRequest request() {
-        return new ReviewCreatedRequest(5, "소금빵이 진짜 맛있어요", null, null);
+        return new ReviewCreatedRequest(VISIT_DETAIL_ID, 5, "소금빵이 진짜 맛있어요", null, null);
     }
 
     private User user() {
@@ -450,12 +490,16 @@ class ReviewServiceTest {
     }
 
     private VisitDetail visitDetail() {
+        return visitDetail(user(), bakery());
+    }
+
+    private VisitDetail visitDetail(User owner, Bakery bakery) {
         return VisitDetail.builder()
-                .id(99L)
+                .id(VISIT_DETAIL_ID)
                 .totalAmount(12000)
                 .visitedAt(LocalDate.of(2026, 9, 5))
                 .createdAt(LocalDateTime.now())
-                .visit(Visit.create(user(), bakery()))
+                .visit(Visit.create(owner, bakery))
                 .build();
     }
 
