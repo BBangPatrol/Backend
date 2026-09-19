@@ -221,6 +221,41 @@ class ReviewServiceTest {
     }
 
     @Test
+    @DisplayName("별점이 1~5 밖이거나 비어 있으면 리뷰를 쓸 수 없다")
+    void rejectsRatingOutOfRange() {
+        // 0 점이면 가게 평점이 깎이고, 10 이상이면 avg_rating(DECIMAL(2,1)) 범위를 넘겨 작성 자체가 터진다
+        for (Integer rating : new Integer[] {null, 0, -1, 6, 100}) {
+            assertThatThrownBy(() -> reviewService.createReview(USER_ID, STORE_ID,
+                    new ReviewCreatedRequest(rating, "소금빵이 진짜 맛있어요", null, null)))
+                    .isInstanceOf(ApiException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REVIEW_RATING);
+        }
+
+        // 별점을 보기도 전에 막아야 방문 조회·저장까지 가지 않는다
+        verify(userRepository, never()).findByIdForUpdate(anyLong());
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("리뷰 수정은 별점을 빼면 기존 값을 유지하고, 범위를 벗어나면 막는다")
+    void rejectsRatingOutOfRangeOnUpdate() {
+        assertThatThrownBy(() -> reviewService.updateReview(USER_ID, 11L,
+                new ReviewUpdatedRequest(0, "별점만 0 으로", null, null, null, null)))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REVIEW_RATING);
+        verify(reviewRepository, never()).findById(anyLong());
+
+        when(reviewRepository.findById(11L)).thenReturn(Optional.of(reviewOf(11L)));
+        when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Review updated = reviewService.updateReview(USER_ID, 11L,
+                new ReviewUpdatedRequest(null, "내용만 고쳤다", null, null, null, null));
+
+        assertThat(updated.getRating()).isEqualTo(4);
+        assertThat(updated.getContent()).isEqualTo("내용만 고쳤다");
+    }
+
+    @Test
     @DisplayName("페이지 번호가 음수면 500 이 아니라 400 이다")
     void rejectsNegativePage() {
         assertThatThrownBy(() -> reviewService.getReview(STORE_ID, -1, USER_ID))

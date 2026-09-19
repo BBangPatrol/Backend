@@ -43,6 +43,8 @@ import java.util.stream.Collectors;
 public class ReviewService {
 
     private final int SIZE = 20;
+    private static final int MIN_RATING = 1;
+    private static final int MAX_RATING = 5;
 
     private final UserRepository userRepository;
     private final BakeryRepository bakeryRepository;
@@ -58,6 +60,8 @@ public class ReviewService {
 
     @Transactional
     public Review createReview(long userId, long storeId, ReviewCreatedRequest request) {
+        validateRating(request.rating(), true);
+
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(()-> new ApiException(ErrorCode.USER_NOT_FOUND));
 
@@ -72,7 +76,7 @@ public class ReviewService {
                 .orElseThrow(() -> new ApiException(ErrorCode.VISIT_NOT_VERIFIED));
 
         Review review = reviewRepository.save(Review.builder()
-                .rating(request.rating() != null ? request.rating() : Integer.valueOf(0))
+                .rating(request.rating())
                 .content(request.content())
                 .likeCount(0)
                 .createdAt(LocalDateTime.now())
@@ -179,6 +183,8 @@ public class ReviewService {
 
     @Transactional
     public Review updateReview(long userId, long reviewId, ReviewUpdatedRequest request) {
+        validateRating(request.rating(), false);
+
         Review originalReview = reviewRepository.findById(reviewId).orElseThrow(
                 () -> new ApiException(ErrorCode.REVIEW_NOT_FOUND));
 
@@ -260,6 +266,25 @@ public class ReviewService {
                 .build());
         review.increaseLikeCount();
         return true;
+    }
+
+    /**
+     * 별점은 1~5 만 받는다. 컨트롤러가 @ModelAttribute 로 받아 빈 검증을 걸기 어려워
+     * BakeryService.validateSearchRequest 처럼 서비스에서 막는다.
+     *
+     * 막지 않으면 두 가지가 깨진다. 별점을 빼고 보내면 0 점으로 저장돼 가게 평점이
+     * 깎이고, 10 이상을 보내면 평균이 bakery.avg_rating(DECIMAL(2,1)) 범위를 넘어
+     * refreshAvgRating 의 UPDATE 가 실패하면서 리뷰 작성 자체가 500 으로 롤백된다.
+     *
+     * 수정은 별점을 안 보내면 기존 값을 유지하는 규칙이라 null 을 허용한다.
+     */
+    private void validateRating(Integer rating, boolean required) {
+        if (rating == null) {
+            if (required) throw new ApiException(ErrorCode.INVALID_REVIEW_RATING);
+            return;
+        }
+
+        if (rating < MIN_RATING || rating > MAX_RATING) throw new ApiException(ErrorCode.INVALID_REVIEW_RATING);
     }
 
     private void addKeyword(Review review, List<Keyword> keywords) {
