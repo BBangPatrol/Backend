@@ -93,12 +93,14 @@ class UserServiceTest {
 
         UserResponseDTO.VisitedBakeryListDTO result = userService.getBakeryList(USER_ID, "");
 
-        assertThat(result.getVisits().get(0))
+        UserResponseDTO.VisitBakeryDTO visit = result.getVisits().get(0);
+        assertThat(visit)
                 .extracting(UserResponseDTO.VisitBakeryDTO::getStoreId,
-                        UserResponseDTO.VisitBakeryDTO::getVisitDate,
-                        UserResponseDTO.VisitBakeryDTO::getReviewId,
-                        UserResponseDTO.VisitBakeryDTO::getRating)
-                .containsExactly(101L, "2026-09-05", 55L, 4);
+                        UserResponseDTO.VisitBakeryDTO::getVisitDate)
+                .containsExactly(101L, "2026-09-05");
+        assertThat(visit.getReview())
+                .extracting(UserResponseDTO.ReviewInfoDTO::getId, UserResponseDTO.ReviewInfoDTO::getRating)
+                .containsExactly(55L, 4);
     }
 
     @Test
@@ -110,11 +112,7 @@ class UserServiceTest {
 
         // 방문 자체는 남고 리뷰만 빠진다
         assertThat(result.getVisits()).hasSize(1);
-        assertThat(result.getVisits().get(0))
-                .extracting(UserResponseDTO.VisitBakeryDTO::getReviewId,
-                        UserResponseDTO.VisitBakeryDTO::getRating,
-                        UserResponseDTO.VisitBakeryDTO::getReviewContent)
-                .containsOnlyNulls();
+        assertThat(result.getVisits().get(0).getReview()).isNull();
     }
 
     @Test

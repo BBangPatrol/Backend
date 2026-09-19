@@ -7,6 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import software.amazon.awssdk.services.s3.endpoints.internal.Value;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -136,15 +138,27 @@ public class UserResponseDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class VisitBakeryDTO {
+        Long visitDetailId;
         Long storeId;
         String storeName;
         String storeImageUrl;
         String visitDate;
         String state;
-        Long reviewId;
-        Integer rating;
-        String reviewContent;
+        ReviewInfoDTO review;
         String reviewDeadline;
         Long remainingDays;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ReviewInfoDTO {
+        Long id;
+        Integer rating;
+        String content;
+        List<Long> keywords;
+        List<String> images;
+        List<String> thumbnails;
     }
 }

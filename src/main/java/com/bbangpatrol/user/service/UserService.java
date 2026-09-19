@@ -221,7 +221,7 @@ public class UserService {
         List<UserResponseDTO.VisitBakeryDTO> data = visitDetailRepository.findHistoryByUserId(userId, query).stream()
                 .map(visitDetail -> {
                     Bakery bakery = visitDetail.getVisit().getBakery();
-                    // 링크가 남은 삭제 리뷰가 새어 나가지 않게 한 번 더 본다
+
                     Review review = visitDetail.getReview();
                     if (review != null && review.getDeletedAt() != null) review = null;
 
@@ -232,14 +232,19 @@ public class UserService {
                     String state = review != null ? "reviewed" : deadline.isBefore(today) ? "expired" : "none";
 
                     return UserResponseDTO.VisitBakeryDTO.builder()
+                            .visitDetailId(visitDetail.getId())
                             .storeId(bakery.getId())
                             .storeName(bakery.getName())
                             .storeImageUrl(r2Service.getPublicUrl(bakery.getSignatureImages().get(0).getImageUrl()))
                             .visitDate(visitedAt.toString())
                             .state(state)
-                            .reviewId(review == null ? null : review.getId())
-                            .rating(review == null ? null : review.getRating())
-                            .reviewContent(review == null ? null : review.getContent())
+                            .review(review == null ? null : UserResponseDTO.ReviewInfoDTO.builder()
+                                    .id(review.getId())
+                                    .rating(review.getRating())
+                                    .content(review.getContent())
+                                    .keywords(review.getReviewKeywords().stream().map(ReviewKeyword::getKeyword).map(Keyword::getId).toList())
+                                    .images(review.getReviewImages().stream().map(ReviewImage::getImageUrl).map(r2Service::getPublicUrl).toList())
+                                    .thumbnails(review.getReviewImages().stream().map(ReviewImage::getThumbnailUrl).map(r2Service::getPublicUrl).toList()).build())
                             .reviewDeadline(deadline.toString())
                             .remainingDays(Math.max(ChronoUnit.DAYS.between(today, deadline), 0))
                             .build();
