@@ -34,6 +34,7 @@ import java.util.stream.LongStream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -63,7 +64,7 @@ class BakeryServiceTest {
         Bakery lowerRated = bakery(2L, "빵집 B", "3.5");
         Bakery higherRated = bakery(1L, "빵집 A", "4.8");
         when(bakeryRepository.findBakeryIdsForSearch(
-                any(), any(), any(), any(), any(), any(Pageable.class)))
+                any(), any(), any(), any(), any(), anyBoolean(), any(), any(Pageable.class)))
                 .thenReturn(List.of(1L, 2L));
         when(bakeryRepository.findAllById(List.of(1L, 2L)))
                 .thenReturn(List.of(lowerRated, higherRated));
@@ -73,7 +74,7 @@ class BakeryServiceTest {
                 .thenReturn(List.of(1L));
 
         BakerySearchResponse response = bakeryService.searchBakeries(
-                10L, new BakerySearchRequest("rating", null, null, null, null));
+                10L, new BakerySearchRequest("rating", null, null, null, null, null));
 
         assertThat(response.result()).extracting(item -> item.bakery().id())
                 .containsExactly(1L, 2L);
@@ -85,10 +86,36 @@ class BakeryServiceTest {
     @Test
     void 거리순_검색은_위치가_없으면_실패한다() {
         BakerySearchRequest request = new BakerySearchRequest(
-                "distance", null, null, null, null);
+                "distance", null, null, null, null, null);
 
         assertThatThrownBy(() -> bakeryService.searchBakeries(null, request))
                 .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void 비로그인_상태에서_즐겨찾기_필터를_요청하면_실패한다() {
+        BakerySearchRequest request = new BakerySearchRequest(
+                "rating", null, null, null, null, true);
+
+        assertThatThrownBy(() -> bakeryService.searchBakeries(null, request))
+                .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void 로그인_상태에서_즐겨찾기_필터를_요청하면_레포지토리에_전달된다() {
+        when(bakeryRepository.findBakeryIdsForSearch(
+                any(), any(), any(), any(), any(), anyBoolean(), any(), any(Pageable.class)))
+                .thenReturn(List.of());
+        when(bakeryRepository.findAllById(List.of())).thenReturn(List.of());
+
+        BakerySearchRequest request = new BakerySearchRequest(
+                "rating", null, null, null, null, true);
+
+        bakeryService.searchBakeries(10L, request);
+
+        verify(bakeryRepository).findBakeryIdsForSearch(
+                "rating", null, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO, null, true, 10L,
+                org.springframework.data.domain.PageRequest.of(0, 21));
     }
 
     @Test
@@ -100,13 +127,13 @@ class BakeryServiceTest {
                 .toList();
 
         when(bakeryRepository.findBakeryIdsForSearch(
-                any(), any(), any(), any(), any(), any(Pageable.class)))
+                any(), any(), any(), any(), any(), anyBoolean(), any(), any(Pageable.class)))
                 .thenReturn(searchedIds);
         when(bakeryRepository.findAllById(pageIds)).thenReturn(bakeries);
         when(visitRepository.sumVisitCountsByBakeryIds(pageIds)).thenReturn(new ArrayList<>());
 
         BakerySearchResponse response = bakeryService.searchBakeries(
-                null, new BakerySearchRequest("rating", null, null, null, null));
+                null, new BakerySearchRequest("rating", null, null, null, null, null));
 
         assertThat(response.result()).hasSize(20);
         assertThat(response.cursorPageInfo().hasNext()).isTrue();
@@ -164,7 +191,7 @@ class BakeryServiceTest {
                         .thumbnailUrl("bakeries/1/signature_menu_thumb.jpg")
                         .build()))
                 .build();
-        when(bakeryRepository.findBakeryIdsForSearch(any(), any(), any(), any(), any(), any(Pageable.class)))
+        when(bakeryRepository.findBakeryIdsForSearch(any(), any(), any(), any(), any(), anyBoolean(), any(), any(Pageable.class)))
                 .thenReturn(List.of(1L));
         when(bakeryRepository.findAllById(List.of(1L))).thenReturn(List.of(bakery));
         when(visitRepository.sumVisitCountsByBakeryIds(List.of(1L))).thenReturn(List.of());
@@ -173,7 +200,7 @@ class BakeryServiceTest {
                 .thenReturn("https://cdn.test/bakeries/1/signature_menu_thumb.jpg");
 
         BakerySearchResponse response = bakeryService.searchBakeries(null,
-                new BakerySearchRequest("rating", null, null, null, null));
+                new BakerySearchRequest("rating", null, null, null, null, null));
 
         assertThat(response.result().get(0).bakery().image())
                 .isEqualTo("https://cdn.test/bakeries/1/signature_menu_thumb.jpg");
@@ -190,7 +217,7 @@ class BakeryServiceTest {
                         .imageUrl("bakeries/1/signature_menu.jpg")
                         .build()))
                 .build();
-        when(bakeryRepository.findBakeryIdsForSearch(any(), any(), any(), any(), any(), any(Pageable.class)))
+        when(bakeryRepository.findBakeryIdsForSearch(any(), any(), any(), any(), any(), anyBoolean(), any(), any(Pageable.class)))
                 .thenReturn(List.of(1L));
         when(bakeryRepository.findAllById(List.of(1L))).thenReturn(List.of(bakery));
         when(visitRepository.sumVisitCountsByBakeryIds(List.of(1L))).thenReturn(List.of());
@@ -198,7 +225,7 @@ class BakeryServiceTest {
                 .thenReturn("https://cdn.test/bakeries/1/signature_menu.jpg");
 
         BakerySearchResponse response = bakeryService.searchBakeries(null,
-                new BakerySearchRequest("rating", null, null, null, null));
+                new BakerySearchRequest("rating", null, null, null, null, null));
 
         // 404 가 나가지 않도록 원본 URL 을 내려준다
         assertThat(response.result().get(0).bakery().image())
