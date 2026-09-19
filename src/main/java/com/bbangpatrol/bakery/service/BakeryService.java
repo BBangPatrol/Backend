@@ -47,14 +47,15 @@ public class BakeryService {
 
     @Transactional(readOnly = true)
     public BakerySearchResponse searchBakeries(Long userId, BakerySearchRequest request) {
-        validateSearchRequest(request);
+        validateSearchRequest(userId, request);
 
         String name = StringUtils.hasText(request.name()) ? request.name().trim() : null;
         BigDecimal lat = request.lat() == null ? BigDecimal.ZERO : request.lat();
         BigDecimal lon = request.lon() == null ? BigDecimal.ZERO : request.lon();
+        boolean favoriteOnly = Boolean.TRUE.equals(request.favoriteOnly());
 
         List<Long> bakeryIds = bakeryRepository.findBakeryIdsForSearch(
-                request.sort(), name, lat, lon, request.cursor(),
+                request.sort(), name, lat, lon, request.cursor(), favoriteOnly, userId,
                 PageRequest.of(0, SEARCH_PAGE_SIZE + 1));
 
         boolean hasNext = bakeryIds.size() > SEARCH_PAGE_SIZE;
@@ -140,11 +141,12 @@ public class BakeryService {
                 .orElseGet(() -> fetchAndCacheAttractions(storeId, bakery));
     }
 
-    private void validateSearchRequest(BakerySearchRequest request) {
+    private void validateSearchRequest(Long userId, BakerySearchRequest request) {
         if (!List.of("distance", "rating", "visit").contains(request.sort())) throw new ApiException(ErrorCode.BAD_REQUEST);
         if ("distance".equals(request.sort()) && (request.lat() == null || request.lon() == null)) throw new ApiException(ErrorCode.BAD_REQUEST);
         if (request.lat() != null && (request.lat().compareTo(BigDecimal.valueOf(-90)) < 0 || request.lat().compareTo(BigDecimal.valueOf(90)) > 0)) throw new ApiException(ErrorCode.BAD_REQUEST);
         if (request.lon() != null && (request.lon().compareTo(BigDecimal.valueOf(-180)) < 0 || request.lon().compareTo(BigDecimal.valueOf(180)) > 0)) throw new ApiException(ErrorCode.BAD_REQUEST);
+        if (Boolean.TRUE.equals(request.favoriteOnly()) && userId == null) throw new ApiException(ErrorCode.UNAUTHORIZED_401);
     }
 
     private Map<Long, Long> getVisitCounts(List<Long> bakeryIds) {
