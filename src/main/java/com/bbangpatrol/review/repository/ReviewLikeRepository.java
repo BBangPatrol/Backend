@@ -17,6 +17,9 @@ public interface ReviewLikeRepository extends JpaRepository<ReviewLike, Long> {
 
     ReviewLike findByUserAndReview(User user, Review review);
 
+    // 탈퇴 처리에서 쓴다. 누른 좋아요를 회수하지 않으면 남의 리뷰 like_count 가 실제보다 크게 남는다
+    List<ReviewLike> findAllByUser_Id(Long userId);
+
     @Query("SELECT rl.review.id FROM ReviewLike rl WHERE rl.user.id = :userId AND rl.review.id IN :reviewIds")
     List<Long> findLikedReviewIds(@Param("userId") long userId, @Param("reviewIds") Collection<Long> reviewIds);
 }

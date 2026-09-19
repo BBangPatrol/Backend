@@ -11,6 +11,9 @@ import java.util.List;
 import org.springframework.data.repository.query.Param;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
+
+    // 탈퇴 처리에서 쓴다. 살아 있는 리뷰만 가져와 소프트 삭제하고 평점을 다시 계산한다
+    List<Review> findAllByUser_IdAndDeletedAtIsNull(Long userId);
     Long countByUserAndDeletedAtIsNull(User user);
 
     @Query("SELECT COALESCE(SUM(r.likeCount), 0) FROM Review r WHERE r.user = :user AND r.deletedAt IS NULL")

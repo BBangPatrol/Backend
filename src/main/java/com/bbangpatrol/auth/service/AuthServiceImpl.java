@@ -51,7 +51,7 @@ public class AuthServiceImpl implements AuthService {
         KakaoUserInfo userInfo = kakaoOAuthClient.getUserInfo(kakaoAccessToken);
 
         // 카카오 식별자를 통해 회원 조회
-        User user = userRepository.findByKakaoId(String.valueOf(userInfo.kakaoId()));
+        User user = userRepository.findByKakaoIdAndDeletedAtIsNull(String.valueOf(userInfo.kakaoId()));
         boolean isNewUser = (user == null);
 
         if(isNewUser) { // 만약 조회되는 사용자가 없으면 회원가입이라은 뜻
