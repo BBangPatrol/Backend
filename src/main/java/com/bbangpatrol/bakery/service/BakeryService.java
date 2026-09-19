@@ -5,6 +5,7 @@ import com.bbangpatrol.bakery.dto.*;
 import com.bbangpatrol.bakery.dto.TourApiResponse.TourItem;
 import com.bbangpatrol.bakery.cache.AttractionCache;
 import com.bbangpatrol.bakery.entity.Bakery;
+import com.bbangpatrol.bakery.entity.SignatureImage;
 import com.bbangpatrol.bakery.enums.AttractionCategory;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.bookmark.entity.Bookmark;
@@ -85,9 +86,14 @@ public class BakeryService {
                         .map(bakery -> HotBakeryResponse.BakerySimpleDTO.builder()
                                 .storeId(bakery.getId())
                                 .storeName(bakery.getName())
-                                .imageUrl(r2Service.getPublicUrl(bakery.getSignatureImages().stream()
+                                // 시그니처 사진이 없는 빵집이 상위에 올라오면 orElse(null) 에서 NPE 가 났다.
+                                // 목록·상세(BakerySummaryResponse/BakeryDetail)와 같게 사진이 없으면 null 로 내려준다
+                                .imageUrl(bakery.getSignatureImages().stream()
+                                        .map(SignatureImage::getImageUrl)
+                                        .filter(StringUtils::hasText)
                                         .findFirst()
-                                        .orElse(null).getImageUrl()))
+                                        .map(r2Service::getPublicUrl)
+                                        .orElse(null))
                                 .rating(bakery.getAvgRating())
                                 .region(bakery.getRegion() == null ? null : bakery.getRegion().getValue())
                                 .build())

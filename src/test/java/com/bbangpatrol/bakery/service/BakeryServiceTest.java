@@ -6,6 +6,7 @@ import com.bbangpatrol.bakery.dto.BakeryDetailResponse;
 import com.bbangpatrol.bakery.dto.BakeryFavoriteResponse;
 import com.bbangpatrol.bakery.dto.BakerySearchRequest;
 import com.bbangpatrol.bakery.dto.BakerySearchResponse;
+import com.bbangpatrol.bakery.dto.HotBakeryResponse;
 import com.bbangpatrol.bakery.entity.Bakery;
 import com.bbangpatrol.bakery.entity.SignatureImage;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
@@ -202,6 +203,42 @@ class BakeryServiceTest {
         // 404 가 나가지 않도록 원본 URL 을 내려준다
         assertThat(response.result().get(0).bakery().image())
                 .isEqualTo("https://cdn.test/bakeries/1/signature_menu.jpg");
+    }
+
+    @Test
+    void 인기_빵집_사진은_시그니처_이미지_첫_장을_사용한다() {
+        Bakery bakery = Bakery.builder()
+                .id(1L)
+                .name("빵집 A")
+                .avgRating(new BigDecimal("4.5"))
+                .signatureImages(List.of(SignatureImage.builder()
+                        .imageUrl("bakeries/1/signature_menu.jpg")
+                        .build()))
+                .build();
+        when(bakeryRepository.findHotBakeries()).thenReturn(List.of(bakery));
+        when(r2Service.getPublicUrl("bakeries/1/signature_menu.jpg"))
+                .thenReturn("https://cdn.test/bakeries/1/signature_menu.jpg");
+
+        HotBakeryResponse.BakeryListDTO response = bakeryService.getHotBakery();
+
+        assertThat(response.getStores().get(0).getImageUrl())
+                .isEqualTo("https://cdn.test/bakeries/1/signature_menu.jpg");
+    }
+
+    @Test
+    void 인기_빵집은_시그니처_사진이_없어도_조회된다() {
+        // 사진 없이 등록된 빵집이 방문 상위에 올라오면 홈 화면 전체가 500 으로 죽었다
+        Bakery bakery = Bakery.builder()
+                .id(1L)
+                .name("사진 없는 빵집")
+                .avgRating(new BigDecimal("4.5"))
+                .build();
+        when(bakeryRepository.findHotBakeries()).thenReturn(List.of(bakery));
+
+        HotBakeryResponse.BakeryListDTO response = bakeryService.getHotBakery();
+
+        assertThat(response.getStores()).hasSize(1);
+        assertThat(response.getStores().get(0).getImageUrl()).isNull();
     }
 
     private Bakery bakery(Long id, String name, String rating) {
