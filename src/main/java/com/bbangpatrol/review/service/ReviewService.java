@@ -230,6 +230,10 @@ public class ReviewService {
     public void deleteReview(long userId, long reviewId) {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(()-> new ApiException(ErrorCode.REVIEW_NOT_FOUND));
+
+        // 막지 않으면 이미 지운 리뷰에 204 를 계속 내려주고 deletedAt 만 뒤로 밀린다
+        if (review.getDeletedAt() != null) throw new ApiException(ErrorCode.REVIEW_NOT_FOUND);
+
         if (review.getUser().getId() != userId) throw new ApiException(ErrorCode.USER_UNAUTHORIZE);
 
         review.softDelete();
@@ -244,6 +248,10 @@ public class ReviewService {
                 .orElseThrow(()-> new ApiException(ErrorCode.USER_NOT_FOUND));
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(()-> new ApiException(ErrorCode.REVIEW_NOT_FOUND));
+
+        // 삭제된 리뷰는 목록에 없지만 reviewId 를 아는 클라이언트는 부를 수 있다.
+        // 막지 않으면 사라진 리뷰의 like_count 가 올라간다
+        if (review.getDeletedAt() != null) throw new ApiException(ErrorCode.REVIEW_NOT_FOUND);
 
         ReviewLike existing = reviewLikeRepository.findByUserAndReview(user, review);
 

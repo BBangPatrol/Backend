@@ -221,6 +221,53 @@ class ReviewServiceTest {
     }
 
     @Test
+    @DisplayName("이미 삭제된 리뷰는 다시 삭제할 수 없다")
+    void cannotDeleteAlreadyDeletedReview() {
+        LocalDateTime deletedAt = LocalDateTime.now().minusDays(1);
+        Review deleted = Review.builder()
+                .id(11L)
+                .rating(5)
+                .likeCount(0)
+                .createdAt(LocalDateTime.now())
+                .deletedAt(deletedAt)
+                .user(user())
+                .bakery(bakery())
+                .build();
+        when(reviewRepository.findById(11L)).thenReturn(Optional.of(deleted));
+
+        assertThatThrownBy(() -> reviewService.deleteReview(USER_ID, 11L))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REVIEW_NOT_FOUND);
+
+        // 다시 지우면 삭제 시각만 뒤로 밀린다
+        assertThat(deleted.getDeletedAt()).isEqualTo(deletedAt);
+    }
+
+    @Test
+    @DisplayName("삭제된 리뷰에는 좋아요를 누를 수 없다")
+    void cannotLikeDeletedReview() {
+        Review deleted = Review.builder()
+                .id(11L)
+                .rating(5)
+                .likeCount(3)
+                .createdAt(LocalDateTime.now())
+                .deletedAt(LocalDateTime.now().minusDays(1))
+                .user(user())
+                .bakery(bakery())
+                .build();
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user()));
+        when(reviewRepository.findById(11L)).thenReturn(Optional.of(deleted));
+
+        assertThatThrownBy(() -> reviewService.toggleReviewLike(USER_ID, 11L))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REVIEW_NOT_FOUND);
+
+        // 사라진 리뷰의 좋아요 수가 움직이면 안 된다
+        assertThat(deleted.getLikeCount()).isEqualTo(3);
+        verify(reviewLikeRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("페이지 번호가 음수면 500 이 아니라 400 이다")
     void rejectsNegativePage() {
         assertThatThrownBy(() -> reviewService.getReview(STORE_ID, -1, USER_ID))
