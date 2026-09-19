@@ -10,7 +10,9 @@ import com.bbangpatrol.review.dto.ReviewCreatedRequest;
 import com.bbangpatrol.review.dto.ReviewListResponse;
 import com.bbangpatrol.review.dto.ReviewResponse;
 import com.bbangpatrol.review.dto.ReviewUpdatedRequest;
+import com.bbangpatrol.review.entity.Keyword;
 import com.bbangpatrol.review.entity.Review;
+import com.bbangpatrol.review.entity.ReviewKeyword;
 import com.bbangpatrol.review.repository.KeywordRepository;
 import com.bbangpatrol.review.repository.ReviewImageRepository;
 import com.bbangpatrol.review.repository.ReviewKeywordRepository;
@@ -253,6 +255,29 @@ class ReviewServiceTest {
 
         assertThat(updated.getRating()).isEqualTo(4);
         assertThat(updated.getContent()).isEqualTo("내용만 고쳤다");
+    }
+
+    @Test
+    @DisplayName("이미 달린 키워드는 다시 저장하지 않는다")
+    void doesNotAttachKeywordTwice() {
+        Review review = reviewOf(11L);
+        Keyword attached = Keyword.builder().id(1L).label("소금빵").build();
+        Keyword added = Keyword.builder().id(2L).label("친절해요").build();
+
+        when(reviewRepository.findById(11L)).thenReturn(Optional.of(review));
+        when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(keywordRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(attached, added));
+        // updateReview 는 merge 로 새 인스턴스를 만들어 넘기므로 any() 로 받는다
+        when(reviewKeywordRepository.findAllByReview(any(Review.class))).thenReturn(List.of(
+                ReviewKeyword.builder().id(5L).review(review).keyword(attached).build()));
+
+        reviewService.updateReview(USER_ID, 11L,
+                new ReviewUpdatedRequest(4, "키워드만 추가", null, List.of(1L, 2L), null, null));
+
+        // 중복 저장하면 리뷰 조회 응답의 keywords 에 같은 id 가 두 번 실린다
+        ArgumentCaptor<ReviewKeyword> captor = ArgumentCaptor.forClass(ReviewKeyword.class);
+        verify(reviewKeywordRepository).save(captor.capture());
+        assertThat(captor.getValue().getKeyword().getId()).isEqualTo(2L);
     }
 
     @Test

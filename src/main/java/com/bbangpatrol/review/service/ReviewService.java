@@ -32,6 +32,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -288,8 +289,16 @@ public class ReviewService {
     }
 
     private void addKeyword(Review review, List<Keyword> keywords) {
-        keywords.forEach(k -> reviewKeywordRepository.save(
-                ReviewKeyword.builder().review(review).keyword(k).build()));
+        // 이미 달린 키워드를 또 저장하면 조회 응답의 keywords 에 같은 id 가 여러 번 실린다.
+        // 요청 안에 같은 키워드가 두 번 들어온 경우도 add 가 false 를 돌려주며 걸러진다
+        Set<Long> attached = reviewKeywordRepository.findAllByReview(review).stream()
+                .map(reviewKeyword -> reviewKeyword.getKeyword().getId())
+                .collect(Collectors.toCollection(HashSet::new));
+
+        keywords.stream()
+                .filter(keyword -> attached.add(keyword.getId()))
+                .forEach(keyword -> reviewKeywordRepository.save(
+                        ReviewKeyword.builder().review(review).keyword(keyword).build()));
     }
 
     private void deleteKeyword(List<Long> deleteList, List<ReviewKeyword> keywords) {
