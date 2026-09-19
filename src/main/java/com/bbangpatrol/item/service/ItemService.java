@@ -10,11 +10,12 @@ import com.bbangpatrol.item.entity.Item;
 import com.bbangpatrol.item.entity.UserItem;
 import com.bbangpatrol.item.repository.ItemRepository;
 import com.bbangpatrol.item.repository.UserItemRepository;
-import com.bbangpatrol.mission.service.MissionEvaluator;
+import com.bbangpatrol.item.event.ItemDrawnEvent;
 import com.bbangpatrol.point.service.PointService;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,7 +34,7 @@ public class ItemService {
     private final UserItemRepository userItemRepository;
     private final UserRepository userRepository;
     private final R2Service r2Service;
-    private final MissionEvaluator missionEvaluator;
+    private final ApplicationEventPublisher eventPublisher;
     private final PointService pointService;
 
     @Transactional
@@ -56,8 +57,8 @@ public class ItemService {
                     .item(drawItem)
                     .build());
         }
-        // 수집품 미션 진행도 갱신
-        missionEvaluator.onItemDrawn(userId);
+        // 수집품 미션 진행도 갱신은 커밋 뒤에 한다 (미션 오류가 뽑기를 롤백시키지 않도록)
+        eventPublisher.publishEvent(new ItemDrawnEvent(userId));
 
         // 결과 화면이 도감 목록을 다시 받지 않아도 되도록 아이템 정보를 함께 내려준다
         return new DrawResultResponse(

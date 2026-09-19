@@ -7,7 +7,7 @@ import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.service.UploadedImage;
 import com.bbangpatrol.common.util.code.ErrorCode;
-import com.bbangpatrol.mission.service.MissionEvaluator;
+import com.bbangpatrol.review.event.ReviewCreatedEvent;
 import com.bbangpatrol.review.dto.ReviewListResponse;
 import com.bbangpatrol.review.dto.ReviewCreatedRequest;
 import com.bbangpatrol.review.dto.ReviewResponse;
@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -58,7 +59,7 @@ public class ReviewService {
     private final R2Service r2Service;
     private final ReviewImageRepository reviewImageRepository;
     private final VisitDetailRepository visitDetailRepository;
-    private final MissionEvaluator missionEvaluator;
+    private final ApplicationEventPublisher eventPublisher;
 
 
     @Transactional
@@ -99,8 +100,8 @@ public class ReviewService {
             uploadAndSaveImages(review,  request.reviewImages());
         }
 
-        // 리뷰 미션 진행도 갱신
-        missionEvaluator.onReviewCreated(userId, bakery.getRegion());
+        // 리뷰 미션 진행도 갱신은 커밋 뒤에 한다 (미션 오류가 리뷰 작성을 롤백시키지 않도록)
+        eventPublisher.publishEvent(new ReviewCreatedEvent(userId, bakery.getRegion()));
 
         // 평점은 bakery.avg_rating 에 저장된 값을 내려주므로 리뷰가 늘면 그 값도 다시 채운다
         bakeryRepository.refreshAvgRating(bakery.getId());

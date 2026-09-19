@@ -9,7 +9,7 @@ import com.bbangpatrol.item.entity.ItemRank;
 import com.bbangpatrol.item.entity.UserItem;
 import com.bbangpatrol.item.repository.ItemRepository;
 import com.bbangpatrol.item.repository.UserItemRepository;
-import com.bbangpatrol.mission.service.MissionEvaluator;
+import com.bbangpatrol.item.event.ItemDrawnEvent;
 import com.bbangpatrol.point.service.PointService;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -54,7 +55,7 @@ class ItemServiceTest {
     @Mock
     private R2Service r2Service;
     @Mock
-    private MissionEvaluator missionEvaluator;
+    private ApplicationEventPublisher eventPublisher;
     @Mock
     private PointService pointService;
 
@@ -124,7 +125,7 @@ class ItemServiceTest {
 
         itemService.drawItem(USER_ID);
 
-        verify(missionEvaluator).onItemDrawn(USER_ID);
+        verify(eventPublisher).publishEvent(new ItemDrawnEvent(USER_ID));
     }
 
     @Test

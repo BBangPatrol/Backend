@@ -1,5 +1,7 @@
 package com.bbangpatrol.mission.service;
 
+import com.bbangpatrol.item.event.ItemDrawnEvent;
+import com.bbangpatrol.review.event.ReviewCreatedEvent;
 import com.bbangpatrol.visit.event.ReceiptVerifiedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,7 +10,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * 영수증 인증이 커밋된 뒤에 미션 진행도를 갱신한다.
+ * 영수증 인증·리뷰 작성·수집품 뽑기가 커밋된 뒤에 미션 진행도를 갱신한다.
  *
  * 예전에는 인증 트랜잭션 안에서 바로 갱신해서, 미션 쪽에서 락 대기나 오류가 나면
  * 방문 인증이 통째로 롤백됐다. 보상(미션)이 본행위(인증)를 끌어내리는 구조였다.
@@ -32,6 +34,24 @@ public class MissionEventListener {
         } catch (Exception e) {
             // 미션을 못 올려도 인증 자체는 이미 확정됐다. 다음 인증 때 같은 카운트로 다시 계산된다
             log.error("[MISSION] 영수증 인증 후 미션 갱신 실패. userId={}", event.userId(), e);
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onReviewCreated(ReviewCreatedEvent event) {
+        try {
+            missionEvaluator.onReviewCreated(event.userId(), event.region());
+        } catch (Exception e) {
+            log.error("[MISSION] 리뷰 작성 후 미션 갱신 실패. userId={}", event.userId(), e);
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onItemDrawn(ItemDrawnEvent event) {
+        try {
+            missionEvaluator.onItemDrawn(event.userId());
+        } catch (Exception e) {
+            log.error("[MISSION] 수집품 뽑기 후 미션 갱신 실패. userId={}", event.userId(), e);
         }
     }
 }
