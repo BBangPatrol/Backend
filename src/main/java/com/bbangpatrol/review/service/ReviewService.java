@@ -32,6 +32,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,6 +44,10 @@ import java.util.stream.Collectors;
 public class ReviewService {
 
     private final int SIZE = 20;
+    private static final int MIN_RATING = 1;
+    private static final int MAX_RATING = 5;
+    // 프론트의 업로드 상한(AddImages)과 같은 값
+    private static final int MAX_REVIEW_IMAGES = 5;
 
     private final UserRepository userRepository;
     private final BakeryRepository bakeryRepository;
@@ -58,6 +63,9 @@ public class ReviewService {
 
     @Transactional
     public Review createReview(long userId, long storeId, ReviewCreatedRequest request) {
+        validateRating(request.rating(), true);
+        validateNewImageCount(request.reviewImages());
+
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(()-> new ApiException(ErrorCode.USER_NOT_FOUND));
 
@@ -72,7 +80,7 @@ public class ReviewService {
                 .orElseThrow(() -> new ApiException(ErrorCode.VISIT_NOT_VERIFIED));
 
         Review review = reviewRepository.save(Review.builder()
-                .rating(request.rating() != null ? request.rating() : Integer.valueOf(0))
+                .rating(request.rating())
                 .content(request.content())
                 .likeCount(0)
                 .createdAt(LocalDateTime.now())
@@ -179,6 +187,8 @@ public class ReviewService {
 
     @Transactional
     public Review updateReview(long userId, long reviewId, ReviewUpdatedRequest request) {
+        validateRating(request.rating(), false);
+
         Review originalReview = reviewRepository.findById(reviewId).orElseThrow(
                 () -> new ApiException(ErrorCode.REVIEW_NOT_FOUND));
 
@@ -187,6 +197,8 @@ public class ReviewService {
 
         // 작성자 아이디와 요청한 아이디가 다른 경우
         if (userId != originalReview.getUser().getId()) throw new ApiException(ErrorCode.USER_UNAUTHORIZE);
+
+        validateImageCountAfterUpdate(reviewId, request);
 
         Review newReview = reviewRepository.save(Review.builder()
                 .id(originalReview.getId())
@@ -270,9 +282,60 @@ public class ReviewService {
         return true;
     }
 
+    /**
+     * 별점은 1~5 만 받는다. 컨트롤러가 @ModelAttribute 로 받아 빈 검증을 걸기 어려워
+     * BakeryService.validateSearchRequest 처럼 서비스에서 막는다.
+     *
+     * 막지 않으면 두 가지가 깨진다. 별점을 빼고 보내면 0 점으로 저장돼 가게 평점이
+     * 깎이고, 10 이상을 보내면 평균이 bakery.avg_rating(DECIMAL(2,1)) 범위를 넘어
+     * refreshAvgRating 의 UPDATE 가 실패하면서 리뷰 작성 자체가 500 으로 롤백된다.
+     *
+     * 수정은 별점을 안 보내면 기존 값을 유지하는 규칙이라 null 을 허용한다.
+     */
+    private void validateRating(Integer rating, boolean required) {
+        if (rating == null) {
+            if (required) throw new ApiException(ErrorCode.INVALID_REVIEW_RATING);
+            return;
+        }
+
+        if (rating < MIN_RATING || rating > MAX_RATING) throw new ApiException(ErrorCode.INVALID_REVIEW_RATING);
+    }
+
+    /**
+     * 리뷰 사진은 최대 MAX_REVIEW_IMAGES 장. 요청 용량 한도(장당 15MB / 요청 60MB) 안에서는
+     * 수십 장도 통과해 R2 비용과 목록 응답 크기가 늘어난다. 업로드 전에 막아야
+     * R2 에 올렸다가 되돌리는 일이 없다.
+     */
+    private void validateNewImageCount(List<MultipartFile> images) {
+        if (images != null && images.size() > MAX_REVIEW_IMAGES) {
+            throw new ApiException(ErrorCode.TOO_MANY_REVIEW_IMAGES);
+        }
+    }
+
+    // 수정은 지우기로 한 사진을 뺀 뒤의 장수로 본다. 사진을 안 올리는 요청은 쿼리도 하지 않는다
+    private void validateImageCountAfterUpdate(long reviewId, ReviewUpdatedRequest request) {
+        int adding = request.reviewImages() == null ? 0 : request.reviewImages().size();
+        if (adding == 0) return;
+
+        List<Long> deleting = request.deleteImages() == null ? List.of() : request.deleteImages();
+        long remaining = reviewImageRepository.findAllByReviewIdIn(List.of(reviewId)).stream()
+                .filter(image -> !deleting.contains(image.getId()))
+                .count();
+
+        if (remaining + adding > MAX_REVIEW_IMAGES) throw new ApiException(ErrorCode.TOO_MANY_REVIEW_IMAGES);
+    }
+
     private void addKeyword(Review review, List<Keyword> keywords) {
-        keywords.forEach(k -> reviewKeywordRepository.save(
-                ReviewKeyword.builder().review(review).keyword(k).build()));
+        // 이미 달린 키워드를 또 저장하면 조회 응답의 keywords 에 같은 id 가 여러 번 실린다.
+        // 요청 안에 같은 키워드가 두 번 들어온 경우도 add 가 false 를 돌려주며 걸러진다
+        Set<Long> attached = reviewKeywordRepository.findAllByReview(review).stream()
+                .map(reviewKeyword -> reviewKeyword.getKeyword().getId())
+                .collect(Collectors.toCollection(HashSet::new));
+
+        keywords.stream()
+                .filter(keyword -> attached.add(keyword.getId()))
+                .forEach(keyword -> reviewKeywordRepository.save(
+                        ReviewKeyword.builder().review(review).keyword(keyword).build()));
     }
 
     private void deleteKeyword(List<Long> deleteList, List<ReviewKeyword> keywords) {

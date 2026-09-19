@@ -9,6 +9,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -96,6 +97,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(errorCode.getStatus())
                 .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage()));
+    }
+
+    /**
+     * @ModelAttribute 바인딩·검증 실패. multipart 요청은 MethodArgumentNotValidException 대신
+     * 이 예외가 올라와 그대로 두면 아래 handleException 이 500 으로 받아 버린다.
+     */
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBindException(BindException exception) {
+        ErrorCode errorCode = ErrorCode.BAD_REQUEST;
+        FieldError fieldError = exception.getBindingResult().getFieldError();
+        ErrorDetail detail = fieldError == null
+                ? null
+                : new ErrorDetail(fieldError.getField(), fieldError.getDefaultMessage());
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage(), detail));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -186,5 +204,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(errorCode.getStatus())
                 .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage()));
+    }
+
+    /**
+     * 위에서 못 잡은 예외. 이게 없으면 Spring 기본 500 이 나가 프론트가 message 를 읽을 수 없다.
+     * 예) 시그니처 사진 없는 빵집에서 터졌던 /stores/hot 의 NPE
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Void>> handleException(Exception exception) {
+        ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR_500;
+        log.error("[Exception] 처리하지 못한 예외", exception);
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.onFailure(errorCode.getCode(), errorCode.getMessage(), null));
     }
 }

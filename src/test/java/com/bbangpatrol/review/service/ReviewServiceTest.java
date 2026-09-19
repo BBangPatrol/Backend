@@ -10,7 +10,10 @@ import com.bbangpatrol.review.dto.ReviewCreatedRequest;
 import com.bbangpatrol.review.dto.ReviewListResponse;
 import com.bbangpatrol.review.dto.ReviewResponse;
 import com.bbangpatrol.review.dto.ReviewUpdatedRequest;
+import com.bbangpatrol.review.entity.Keyword;
 import com.bbangpatrol.review.entity.Review;
+import com.bbangpatrol.review.entity.ReviewImage;
+import com.bbangpatrol.review.entity.ReviewKeyword;
 import com.bbangpatrol.review.repository.KeywordRepository;
 import com.bbangpatrol.review.repository.ReviewImageRepository;
 import com.bbangpatrol.review.repository.ReviewKeywordRepository;
@@ -32,11 +35,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -268,6 +275,95 @@ class ReviewServiceTest {
     }
 
     @Test
+    @DisplayName("별점이 1~5 밖이거나 비어 있으면 리뷰를 쓸 수 없다")
+    void rejectsRatingOutOfRange() {
+        // 0 점이면 가게 평점이 깎이고, 10 이상이면 avg_rating(DECIMAL(2,1)) 범위를 넘겨 작성 자체가 터진다
+        for (Integer rating : new Integer[] {null, 0, -1, 6, 100}) {
+            assertThatThrownBy(() -> reviewService.createReview(USER_ID, STORE_ID,
+                    new ReviewCreatedRequest(rating, "소금빵이 진짜 맛있어요", null, null)))
+                    .isInstanceOf(ApiException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REVIEW_RATING);
+        }
+
+        // 별점을 보기도 전에 막아야 방문 조회·저장까지 가지 않는다
+        verify(userRepository, never()).findByIdForUpdate(anyLong());
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("리뷰 수정은 별점을 빼면 기존 값을 유지하고, 범위를 벗어나면 막는다")
+    void rejectsRatingOutOfRangeOnUpdate() {
+        assertThatThrownBy(() -> reviewService.updateReview(USER_ID, 11L,
+                new ReviewUpdatedRequest(0, "별점만 0 으로", null, null, null, null)))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REVIEW_RATING);
+        verify(reviewRepository, never()).findById(anyLong());
+
+        when(reviewRepository.findById(11L)).thenReturn(Optional.of(reviewOf(11L)));
+        when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Review updated = reviewService.updateReview(USER_ID, 11L,
+                new ReviewUpdatedRequest(null, "내용만 고쳤다", null, null, null, null));
+
+        assertThat(updated.getRating()).isEqualTo(4);
+        assertThat(updated.getContent()).isEqualTo("내용만 고쳤다");
+    }
+
+    @Test
+    @DisplayName("이미 달린 키워드는 다시 저장하지 않는다")
+    void doesNotAttachKeywordTwice() {
+        Review review = reviewOf(11L);
+        Keyword attached = Keyword.builder().id(1L).label("소금빵").build();
+        Keyword added = Keyword.builder().id(2L).label("친절해요").build();
+
+        when(reviewRepository.findById(11L)).thenReturn(Optional.of(review));
+        when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(keywordRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(attached, added));
+        // updateReview 는 merge 로 새 인스턴스를 만들어 넘기므로 any() 로 받는다
+        when(reviewKeywordRepository.findAllByReview(any(Review.class))).thenReturn(List.of(
+                ReviewKeyword.builder().id(5L).review(review).keyword(attached).build()));
+
+        reviewService.updateReview(USER_ID, 11L,
+                new ReviewUpdatedRequest(4, "키워드만 추가", null, List.of(1L, 2L), null, null));
+
+        // 중복 저장하면 리뷰 조회 응답의 keywords 에 같은 id 가 두 번 실린다
+        ArgumentCaptor<ReviewKeyword> captor = ArgumentCaptor.forClass(ReviewKeyword.class);
+        verify(reviewKeywordRepository).save(captor.capture());
+        assertThat(captor.getValue().getKeyword().getId()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("리뷰 사진은 5장을 넘겨 올릴 수 없다")
+    void rejectsTooManyImagesOnCreate() throws IOException {
+        assertThatThrownBy(() -> reviewService.createReview(USER_ID, STORE_ID,
+                new ReviewCreatedRequest(5, "사진 여섯 장", null, images(6))))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TOO_MANY_REVIEW_IMAGES);
+
+        // 업로드 전에 막아야 R2 에 올렸다가 되돌리는 일이 없다
+        verify(r2Service, never()).uploadImageWithThumbnail(any(), any());
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("리뷰 수정은 남아 있는 사진까지 합쳐 5장을 넘길 수 없다")
+    void rejectsTooManyImagesOnUpdate() throws IOException {
+        Review review = reviewOf(11L);
+        when(reviewRepository.findById(11L)).thenReturn(Optional.of(review));
+        when(reviewImageRepository.findAllByReviewIdIn(List.of(11L))).thenReturn(List.of(
+                reviewImageOf(1L, review), reviewImageOf(2L, review), reviewImageOf(3L, review), reviewImageOf(4L, review)));
+
+        // 4장이 남아 있는데 2장을 더 올리면 6장이 된다
+        assertThatThrownBy(() -> reviewService.updateReview(USER_ID, 11L,
+                new ReviewUpdatedRequest(4, "사진 추가", null, null, null, images(2))))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TOO_MANY_REVIEW_IMAGES);
+
+        verify(r2Service, never()).uploadImageWithThumbnail(any(), any());
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("페이지 번호가 음수면 500 이 아니라 400 이다")
     void rejectsNegativePage() {
         assertThatThrownBy(() -> reviewService.getReview(STORE_ID, -1, USER_ID))
@@ -360,6 +456,17 @@ class ReviewServiceTest {
                 .createdAt(LocalDateTime.now())
                 .visit(Visit.create(user(), bakery()))
                 .build();
+    }
+
+    private List<MultipartFile> images(int count) {
+        return IntStream.range(0, count)
+                .mapToObj(i -> (MultipartFile) new MockMultipartFile(
+                        "reviewImages", "image" + i + ".jpg", "image/jpeg", new byte[] {1}))
+                .toList();
+    }
+
+    private ReviewImage reviewImageOf(long id, Review review) {
+        return ReviewImage.builder().id(id).review(review).imageUrl("reviews/11/" + id + ".jpg").build();
     }
 
     private Review reviewOf(long id) {
