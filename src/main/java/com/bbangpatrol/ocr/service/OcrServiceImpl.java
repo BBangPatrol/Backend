@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 
@@ -30,6 +31,11 @@ public class OcrServiceImpl implements OcrService {
     private final GeminiClient geminiClient;
     private final BakeryRepository bakeryRepository;
     private final ReceiptStoreMatcher storeMatcher;
+
+    // 영수증 등록 기한. 시연 기간에 찍은 영수증을 계속 쓸 수 있도록 90일로 뒀다
+    private static final int RECEIPT_VALID_DAYS = 90;
+    // 서버가 UTC 로 돌아도 영업일 기준은 한국 날짜다
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final ReceiptTokenService receiptTokenService;
     private final ReceiptHashService receiptHashService;
@@ -196,10 +202,19 @@ public class OcrServiceImpl implements OcrService {
     private void validateReceiptDate(String date) {
         try {
             LocalDate receiptDate = LocalDate.parse(date);
-            LocalDate today = LocalDate.now();
 
-            // 오늘 기준 7일 이전 날짜보다 더 과거면 등록 불가. 일단 개발을 위해 10년으로
-            if (receiptDate.isBefore(today.minusDays(3650))) {
+            // 서버 타임존이 지정돼 있지 않아 컨테이너에서는 UTC 로 돈다.
+            // 그대로 LocalDate.now() 를 쓰면 한국 시간 오전(= UTC 전날)에 산 영수증이
+            // "내일 날짜"로 보여 미래 영수증으로 걸린다. 그래서 기준을 한국 날짜로 고정한다.
+            LocalDate today = LocalDate.now(KST);
+
+            if (receiptDate.isBefore(today.minusDays(RECEIPT_VALID_DAYS))) {
+                throw new ApiException(ErrorCode.RECEIPT_TOO_OLD);
+            }
+
+            // 미래 날짜는 영수증일 수 없다. 상한이 없으면 날짜를 앞당겨 적은 영수증이 그대로 통과한다
+            if (receiptDate.isAfter(today)) {
+                log.info("[OCR SERVICE] 미래 날짜 영수증이다. date={}, 오늘={}", receiptDate, today);
                 throw new ApiException(ErrorCode.RECEIPT_TOO_OLD);
             }
 
