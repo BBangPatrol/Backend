@@ -34,6 +34,9 @@ public enum ErrorCode implements BaseErrorCode{
     RECEIPT_BUSINESS_NUMBER_MISSING(HttpStatus.BAD_REQUEST, "PARSE400-9", "영수증에서 사업자번호가 인식되지 않았습니다."),
     // 같은 브랜드의 다른 지점으로 보이는 경우. 사용자가 할 수 있는 일(지점 다시 고르기)을 알려준다
     RECEIPT_STORE_BRANCH_MISMATCH(HttpStatus.BAD_REQUEST, "PARSE400-10", "다른 지점의 영수증으로 보입니다. 방문한 지점을 선택해 주세요."),
+    // 사진만 올리는 인증에서 가게를 특정하지 못한 경우
+    RECEIPT_STORE_NOT_REGISTERED(HttpStatus.NOT_FOUND, "PARSE404-1", "빵범대에 등록되지 않은 가게의 영수증입니다."),
+    RECEIPT_STORE_AMBIGUOUS(HttpStatus.CONFLICT, "PARSE409-1", "어느 가게인지 특정하지 못했습니다. 가게를 선택해 주세요."),
 
     // 빵집 관련 에러들
     RECEIPT_ALREADY_USED(HttpStatus.CONFLICT, "BAKE002", "이미 사용한 영수증입니다."),

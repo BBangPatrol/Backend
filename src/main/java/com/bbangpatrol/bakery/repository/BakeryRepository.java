@@ -15,6 +15,9 @@ public interface BakeryRepository extends JpaRepository<Bakery, Long> {
 
     Optional<Bakery> findByIdAndDeletedAtIsNull(Long id);
 
+    // 영수증만 보고 가게를 찾을 때 쓴다 (StoreResolver). 100곳 남짓이라 전부 읽어 메모리에서 맞춘다
+    List<Bakery> findAllByDeletedAtIsNull();
+
     @Query(value = """
             WITH ranked_bakery AS (
                 SELECT b.id,

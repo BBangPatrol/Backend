@@ -65,8 +65,10 @@ class OcrServiceVerifyStoreTest {
     @BeforeEach
     void setUp() {
         // 매처는 진짜를 쓴다. 판정 규칙이 이 테스트의 대상이다
+        ReceiptStoreMatcher matcher = new ReceiptStoreMatcher();
         ocrService = new OcrServiceImpl(imageValidator, ocrClient, geminiClient, bakeryRepository,
-                new ReceiptStoreMatcher(), receiptTokenService, receiptHashService, receiptDuplicateChecker);
+                matcher, new StoreResolver(bakeryRepository, matcher),
+                receiptTokenService, receiptHashService, receiptDuplicateChecker);
 
         when(ocrClient.extractText(any())).thenReturn("ocr-text");
         when(receiptHashService.create(any(), any(), any(), any())).thenReturn("hash");
