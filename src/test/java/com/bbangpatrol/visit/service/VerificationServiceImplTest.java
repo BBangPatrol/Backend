@@ -50,6 +50,7 @@ class VerificationServiceImplTest {
     private static final long STORE_ID = 101L;
     private static final String TOKEN = "verification-token";
     private static final String RECEIPT_NUM = "0001";
+    private static final String BUSINESS_NUMBER = "123-45-67890";
     private static final String HASH = "hashed-receipt";
 
     @Mock
@@ -146,7 +147,7 @@ class VerificationServiceImplTest {
     @Test
     @DisplayName("없는 빵집이면 토큰만 쓰고 막힌다")
     void rejectsUnknownBakery() {
-        when(receiptTokenService.consumeToken(TOKEN)).thenReturn(RECEIPT_NUM);
+        when(receiptTokenService.consumeToken(TOKEN)).thenReturn(new ReceiptTokenService.ReceiptTicket(RECEIPT_NUM, BUSINESS_NUMBER));
         when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> verificationService.doVerification(USER_ID, STORE_ID, request(12000)))
@@ -161,7 +162,7 @@ class VerificationServiceImplTest {
     }
 
     private void givenTokenAndBakery() {
-        when(receiptTokenService.consumeToken(TOKEN)).thenReturn(RECEIPT_NUM);
+        when(receiptTokenService.consumeToken(TOKEN)).thenReturn(new ReceiptTokenService.ReceiptTicket(RECEIPT_NUM, BUSINESS_NUMBER));
         when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
         when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
         when(receiptHashService.create(any(), any(), any(), any())).thenReturn(HASH);

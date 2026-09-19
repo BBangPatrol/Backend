@@ -26,7 +26,17 @@ public class ReceiptTokenService {
     @Value("${receipt.verification-secret}")
     private String secret;
 
-    public String issueToken(Long userId, String receiptNum) {
+    /**
+     * 인증을 통과한 영수증의 정보. 방문 등록(2단계)이 중복 방지 해시를 만들 때 쓴다.
+     * businessNumber 는 영수증에서 읽은 값이고, 옛 토큰에는 없어서 null 일 수 있다.
+     */
+    public record ReceiptTicket(String receiptNum, String businessNumber) {
+    }
+
+    // Redis 값은 "사업자번호|승인번호". 승인번호에는 구분자가 들어가지 않는다
+    private static final String DELIMITER = "|";
+
+    public String issueToken(Long userId, String receiptNum, String businessNumber) {
         String nonce = UUID.randomUUID().toString();
 
         String raw = userId + ":" + receiptNum + ":" + nonce;
@@ -34,24 +44,34 @@ public class ReceiptTokenService {
 
         redisTemplate.opsForValue().set(
                 KEY_PREFIX + token,
-                receiptNum,
+                (businessNumber == null ? "" : businessNumber) + DELIMITER + receiptNum,
                 TTL
         );
 
         return token;
     }
 
-    public String consumeToken(String token) {
+    public ReceiptTicket consumeToken(String token) {
         String key = KEY_PREFIX + token;
 
-        String receiptNum = redisTemplate.opsForValue()
+        String stored = redisTemplate.opsForValue()
                 .getAndDelete(key);
 
-        if (receiptNum == null) {
+        if (stored == null) {
             throw new ApiException(ErrorCode.INVALID_RECEIPT_TOKEN);
         }
 
-        return receiptNum;
+        // 배포 직전에 발급돼 아직 살아 있는 옛 토큰은 승인번호만 들어 있다 (TTL 10분)
+        int boundary = stored.indexOf(DELIMITER);
+        if (boundary < 0) {
+            return new ReceiptTicket(stored, null);
+        }
+
+        String businessNumber = stored.substring(0, boundary);
+        return new ReceiptTicket(
+                stored.substring(boundary + 1),
+                businessNumber.isBlank() ? null : businessNumber
+        );
     }
 
     private String createHmac(String value) {

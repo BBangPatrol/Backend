@@ -44,7 +44,9 @@ public class VerificationServiceImpl implements VerificationService {
         log.info("[Verification Service] 사용자 영수증 인증 처리 시작. userId: {}, storeId: {}", userId, storeId);
 
         // 토큰 전달해서 사용자 영수증 승인번호 가져오기
-        String receiptNum = receiptTokenService.consumeToken(request.getVerificationToken());
+        ReceiptTokenService.ReceiptTicket ticket =
+                receiptTokenService.consumeToken(request.getVerificationToken());
+        String receiptNum = ticket.receiptNum();
         log.info("[Verification Service] 토큰을 통해 조회한 사용자의 영수증 승인번호 조회 {}", receiptNum);
 
         // 2. 빵집 조회
@@ -57,9 +59,12 @@ public class VerificationServiceImpl implements VerificationService {
         userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
-        // 4. 사업자번호 + 승인번호 + 날짜 + 금액으로 영수증 해시 생성
+        // 4. 사업자번호 + 승인번호 + 날짜 + 금액으로 영수증 해시 생성.
+        //    번호는 OCR 단계가 영수증에서 읽어 토큰에 실어 보낸 값을 쓴다. 가게에 저장된 번호를 쓰면
+        //    사업자번호를 모르는 가게에서 OCR 단계의 중복 검사와 다른 해시가 나온다.
+        //    (옛 토큰은 번호가 없으므로 예전처럼 가게 값으로 돌아간다)
         String receiptHash = receiptHashService.create(
-                bakery.getBusinessNumber(),
+                ticket.businessNumber() != null ? ticket.businessNumber() : bakery.getBusinessNumber(),
                 receiptNum,
                 request.getDate(),
                 request.getTotalAmount()
