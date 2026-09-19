@@ -7,12 +7,16 @@ public record BakerySearchRequest(
         String name,
         BigDecimal lat,
         BigDecimal lon,
-        Long cursor
+        Long cursor,
+        Boolean favoriteOnly
 ) {
 
     public BakerySearchRequest {
         if (sort == null || sort.isBlank()) {
             sort = "distance";
+        }
+        if (favoriteOnly == null) {
+            favoriteOnly = false;
         }
     }
 }

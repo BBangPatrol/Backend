@@ -31,8 +31,10 @@ public interface BakeryRepository extends JpaRepository<Bakery, Long> {
                        ) AS sort_order
                 FROM bakery b
                 LEFT JOIN visits v ON v.bakery_id = b.id
+                LEFT JOIN bookmark bm ON bm.bakery_id = b.id AND bm.user_id = :userId
                 WHERE b.deleted_at IS NULL
                   AND (:name IS NULL OR LOWER(b.name) LIKE LOWER(CONCAT('%', :name, '%')))
+                  AND (:favoriteOnly = FALSE OR bm.id IS NOT NULL)
                 GROUP BY b.id, b.lng, b.lat, b.avg_rating
             )
             SELECT id
@@ -51,6 +53,8 @@ public interface BakeryRepository extends JpaRepository<Bakery, Long> {
             @Param("lat") BigDecimal lat,
             @Param("lon") BigDecimal lon,
             @Param("cursor") Long cursor,
+            @Param("favoriteOnly") boolean favoriteOnly,
+            @Param("userId") Long userId,
             Pageable pageable
     );
 
