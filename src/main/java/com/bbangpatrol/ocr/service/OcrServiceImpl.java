@@ -143,21 +143,32 @@ public class OcrServiceImpl implements OcrService {
         String storedNumber = bakery.getBusinessNumber();
         boolean knownNumber = storedNumber != null && !storedNumber.isBlank();
 
+        boolean sameName = storeMatcher.matchesName(bakery.getName(), parsedResult.bakeryName());
+
         if (knownNumber) {
             if (!normalize(storedNumber).equals(normalize(parsedResult.businessNumber()))) {
-                throw new ApiException(ErrorCode.RECEIPT_STORE_MISMATCH);
+                // 상호가 같은데 번호가 다르면 같은 브랜드의 다른 지점이다 (지점마다 사업자가 따로인 경우)
+                log.info("[OCR SERVICE] 사업자번호 불일치. bakeryId={}, 상호일치={}", bakery.getId(), sameName);
+                throw new ApiException(sameName
+                        ? ErrorCode.RECEIPT_STORE_BRANCH_MISMATCH
+                        : ErrorCode.RECEIPT_STORE_MISMATCH);
             }
             if (addressMatch == ReceiptStoreMatcher.AddressMatch.MISMATCH) {
+                // 번호는 같은데 주소가 다르다 = 여러 지점이 한 법인 번호를 쓰는 경우
                 log.info("[OCR SERVICE] 사업자번호는 같지만 주소가 다르다 - 다른 지점 영수증으로 보인다. bakeryId={}", bakery.getId());
-                throw new ApiException(ErrorCode.RECEIPT_STORE_MISMATCH);
+                throw new ApiException(ErrorCode.RECEIPT_STORE_BRANCH_MISMATCH);
             }
             log.info("[OCR SERVICE] 영수증의 사업자 번호와 사용자가 선택한 가게 일치!!");
             return;
         }
 
-        if (!storeMatcher.matchesName(bakery.getName(), parsedResult.bakeryName())) {
+        if (!sameName) {
             log.info("[OCR SERVICE] 사업자번호를 모르는 가게 - 상호 불일치. bakeryId={}", bakery.getId());
             throw new ApiException(ErrorCode.RECEIPT_STORE_MISMATCH);
+        }
+        if (addressMatch == ReceiptStoreMatcher.AddressMatch.MISMATCH) {
+            log.info("[OCR SERVICE] 사업자번호를 모르는 가게 - 상호는 같지만 주소가 다르다. bakeryId={}", bakery.getId());
+            throw new ApiException(ErrorCode.RECEIPT_STORE_BRANCH_MISMATCH);
         }
         if (addressMatch != ReceiptStoreMatcher.AddressMatch.MATCH) {
             log.info("[OCR SERVICE] 사업자번호를 모르는 가게 - 주소 확인 실패({}). bakeryId={}", addressMatch, bakery.getId());

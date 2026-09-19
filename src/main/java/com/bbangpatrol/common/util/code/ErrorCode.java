@@ -32,6 +32,8 @@ public enum ErrorCode implements BaseErrorCode{
     RECEIPT_TOO_OLD(HttpStatus.BAD_REQUEST, "PARSE400-7", "영수증의 등록 기한이 만료되었습니다."),
     RECEIPT_STORE_MISMATCH(HttpStatus.BAD_REQUEST, "PARSE400-8", "영수증과 인증 가게가 일치하지 않습니다."),
     RECEIPT_BUSINESS_NUMBER_MISSING(HttpStatus.BAD_REQUEST, "PARSE400-9", "영수증에서 사업자번호가 인식되지 않았습니다."),
+    // 같은 브랜드의 다른 지점으로 보이는 경우. 사용자가 할 수 있는 일(지점 다시 고르기)을 알려준다
+    RECEIPT_STORE_BRANCH_MISMATCH(HttpStatus.BAD_REQUEST, "PARSE400-10", "다른 지점의 영수증으로 보입니다. 방문한 지점을 선택해 주세요."),
 
     // 빵집 관련 에러들
     RECEIPT_ALREADY_USED(HttpStatus.CONFLICT, "BAKE002", "이미 사용한 영수증입니다."),
