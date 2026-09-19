@@ -60,6 +60,10 @@ public enum ErrorCode implements BaseErrorCode{
     VISIT_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "REVIEW400", "리뷰를 작성하려면 영수증 인증이 필요합니다."),
     INVALID_REVIEW_RATING(HttpStatus.BAD_REQUEST, "REVIEW400-2", "별점은 1점부터 5점까지 선택할 수 있습니다."),
     TOO_MANY_REVIEW_IMAGES(HttpStatus.BAD_REQUEST, "REVIEW400-3", "리뷰 사진은 최대 5장까지 올릴 수 있습니다."),
+    VISIT_DETAIL_REQUIRED(HttpStatus.BAD_REQUEST, "REVIEW400-4", "리뷰를 작성할 방문 기록을 선택해 주세요."),
+    VISIT_STORE_MISMATCH(HttpStatus.BAD_REQUEST, "REVIEW400-5", "해당 가게의 방문 기록이 아닙니다."),
+    VISIT_NOT_FOUND(HttpStatus.NOT_FOUND, "REVIEW404-2", "방문 기록이 존재하지 않습니다."),
+    REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "REVIEW409", "이미 리뷰를 작성한 방문입니다."),
 
     // 시연용 사진에 관한 에러
     INVALID_DEMO_CODE(HttpStatus.FORBIDDEN, "DEMO403", "시연 코드가 올바르지 않습니다."),

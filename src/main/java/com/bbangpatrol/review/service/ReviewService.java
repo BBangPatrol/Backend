@@ -73,12 +73,21 @@ public class ReviewService {
         Bakery bakery = bakeryRepository.findById(storeId)
                 .orElseThrow(()-> new ApiException(ErrorCode.BAKERY_NOT_FOUND));
 
-        // 리뷰는 영수증 인증한 방문 한 건당 하나. 아직 리뷰를 안 쓴 가장 최근 방문에 붙인다
-        VisitDetail visitDetail = visitDetailRepository
-                .findReviewable(userId, storeId, PageRequest.of(0, 1))
-                .stream()
-                .findFirst()
-                .orElseThrow(() -> new ApiException(ErrorCode.VISIT_NOT_VERIFIED));
+        // 방문 기록이 없다면
+        if (request.visitDetailId() == null) throw new ApiException(ErrorCode.VISIT_DETAIL_REQUIRED);
+
+        VisitDetail visitDetail = visitDetailRepository.findByIdWithVisit(request.visitDetailId())
+                .orElseThrow(() -> new ApiException(ErrorCode.VISIT_NOT_FOUND));
+
+        // 같은 사용자인지
+        if (visitDetail.getVisit().getUser().getId() != userId) throw new ApiException(ErrorCode.USER_UNAUTHORIZE);
+
+        // 실제 방문한 가게와 일치하는지
+        if (visitDetail.getVisit().getBakery().getId() != storeId) throw new ApiException(ErrorCode.VISIT_STORE_MISMATCH);
+
+        // 리뷰가 이미 존재하는지
+        if (reviewRepository.existsByVisitDetail_IdAndDeletedAtIsNull(visitDetail.getId()))
+            throw new ApiException(ErrorCode.REVIEW_ALREADY_EXISTS);
 
         Review review = reviewRepository.save(Review.builder()
                 .rating(request.rating())
@@ -126,14 +135,11 @@ public class ReviewService {
                 .collect(Collectors.groupingBy(
                         img -> img.getReview().getId(),
                         Collectors.mapping(
-                                // 저장된 값은 R2 키다. 응답에는 public URL 로 변환해서 내려준다
                                 img -> r2Service.getPublicUrl(img.getImageUrl()),
                                 Collectors.toList()
                         )
                 ));
 
-        // 목록에서는 원본 대신 썸네일만 렌더링하도록 함께 내려준다.
-        // 썸네일이 없는 행(thumbnail_url IS NULL)은 원본으로 폴백해 깨진 이미지가 나가지 않게 한다
         Map<Long, List<String>> thumbnailMap = reviewImages.stream()
                 .collect(Collectors.groupingBy(
                         img -> img.getReview().getId(),

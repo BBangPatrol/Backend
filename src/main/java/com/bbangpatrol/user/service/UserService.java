@@ -232,6 +232,7 @@ public class UserService {
                     String state = review != null ? "reviewed" : deadline.isBefore(today) ? "expired" : "none";
 
                     return UserResponseDTO.VisitBakeryDTO.builder()
+                            .visitDetailId(visitDetail.getId())
                             .storeId(bakery.getId())
                             .storeName(bakery.getName())
                             .storeImageUrl(r2Service.getPublicUrl(bakery.getSignatureImages().get(0).getImageUrl()))

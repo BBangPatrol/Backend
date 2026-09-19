@@ -102,6 +102,19 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("같은 가게를 여러 번 인증하면 방문마다 다른 visitDetailId 를 내려준다")
+    void givesEachVisitItsOwnId() {
+        givenHistory(visitDetail(9L, LocalDate.of(2026, 9, 5), null),
+                visitDetail(10L, LocalDate.of(2026, 9, 6), null));
+
+        UserResponseDTO.VisitedBakeryListDTO result = userService.getBakeryList(USER_ID, "");
+
+        assertThat(result.getVisits())
+                .extracting(UserResponseDTO.VisitBakeryDTO::getVisitDetailId)
+                .containsExactly(9L, 10L);
+    }
+
+    @Test
     @DisplayName("삭제된 리뷰는 방문 내역에 새어 나가지 않는다")
     void hidesSoftDeletedReview() {
         givenHistory(visitDetail(LocalDate.of(2026, 9, 5), review(LocalDateTime.now())));
@@ -183,9 +196,13 @@ class UserServiceTest {
     }
 
     private VisitDetail visitDetail(LocalDate visitedAt, Review review) {
+        return visitDetail(9L, visitedAt, review);
+    }
+
+    private VisitDetail visitDetail(long id, LocalDate visitedAt, Review review) {
         Visit visit = Visit.builder().id(1L).count(1).user(user()).bakery(bakery()).build();
         return VisitDetail.builder()
-                .id(9L)
+                .id(id)
                 .totalAmount(12000)
                 .visitedAt(visitedAt)
                 .createdAt(LocalDateTime.now())

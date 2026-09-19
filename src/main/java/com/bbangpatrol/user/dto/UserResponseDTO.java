@@ -136,6 +136,7 @@ public class UserResponseDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class VisitBakeryDTO {
+        Long visitDetailId;
         Long storeId;
         String storeName;
         String storeImageUrl;
