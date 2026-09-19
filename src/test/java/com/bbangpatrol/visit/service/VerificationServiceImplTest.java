@@ -5,7 +5,7 @@ import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.common.enums.Region;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.util.code.ErrorCode;
-import com.bbangpatrol.mission.service.MissionEvaluator;
+import com.bbangpatrol.visit.event.ReceiptVerifiedEvent;
 import com.bbangpatrol.ocr.service.ReceiptTokenService;
 import com.bbangpatrol.point.service.PointService;
 import com.bbangpatrol.user.entity.User;
@@ -23,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDate;
 import java.util.Optional;
@@ -62,7 +63,7 @@ class VerificationServiceImplTest {
     @Mock
     private PointService pointService;
     @Mock
-    private MissionEvaluator missionEvaluator;
+    private ApplicationEventPublisher eventPublisher;
     @Mock
     private BakeryRepository bakeryRepository;
     @Mock
@@ -87,8 +88,9 @@ class VerificationServiceImplTest {
 
         // 하나라도 새면 같은 영수증으로 포인트를 반복해서 벌 수 있다
         verify(visitDetailRepository, never()).save(any());
-        verify(pointService, never()).updatePoint(anyLong(), anyInt(), anyBoolean());
-        verify(missionEvaluator, never()).onReceiptVerified(anyLong(), any());
+        verify(pointService, never()).updatePoint(anyLong(), anyInt(), anyBoolean(), any());
+        // 인증이 막혔으면 미션 갱신 신호도 나가면 안 된다
+        verify(eventPublisher, never()).publishEvent(any(ReceiptVerifiedEvent.class));
     }
 
     @Test
@@ -120,7 +122,7 @@ class VerificationServiceImplTest {
 
         // 12900 / 1000 = 12 -> 1200
         assertThat(response.getPoint()).isEqualTo(1200);
-        verify(pointService).updatePoint(USER_ID, 1200, true);
+        verify(pointService).updatePoint(USER_ID, 1200, true, "영수증 인증");
     }
 
     @Test
@@ -131,7 +133,8 @@ class VerificationServiceImplTest {
         VisitResponse response = verificationService.doVerification(USER_ID, STORE_ID, request(900));
 
         assertThat(response.getPoint()).isZero();
-        verify(pointService).updatePoint(USER_ID, 0, true);
+        // 0원 적립 내역이 쌓이면 포인트 내역 화면이 지저분해진다
+        verify(pointService, never()).updatePoint(anyLong(), anyInt(), anyBoolean(), any());
     }
 
     @Test
@@ -160,7 +163,7 @@ class VerificationServiceImplTest {
         assertThat(captor.getValue().getVisitedAt()).isEqualTo(LocalDate.of(2026, 9, 5));
 
         assertThat(response.getPoint()).isEqualTo(1200);
-        verify(pointService).updatePoint(USER_ID, 1200, true);
+        verify(pointService).updatePoint(USER_ID, 1200, true, "영수증 인증");
         verify(receiptHashService).create(BUSINESS_NUMBER, RECEIPT_NUM, LocalDate.of(2026, 9, 5), 12000);
     }
 
@@ -168,13 +171,26 @@ class VerificationServiceImplTest {
     @DisplayName("없는 빵집이면 토큰만 쓰고 막힌다")
     void rejectsUnknownBakery() {
         when(receiptTokenService.consumeToken(TOKEN, USER_ID, STORE_ID)).thenReturn(ticket(12000));
-        when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.empty());
+        when(bakeryRepository.findByIdAndDeletedAtIsNull(STORE_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> verificationService.doVerification(USER_ID, STORE_ID, request(12000)))
                 .isInstanceOf(ApiException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BAKERY_NOT_FOUND);
 
         verify(visitDetailRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("인증이 끝나면 미션 갱신 신호를 커밋 뒤로 넘긴다")
+    void publishesMissionEventAfterVerification() {
+        givenTokenBakeryAndVisit(12000);
+
+        verificationService.doVerification(USER_ID, STORE_ID, request(12000));
+
+        // 미션 갱신을 같은 트랜잭션에서 하면 미션 오류가 인증까지 롤백시킨다
+        ArgumentCaptor<ReceiptVerifiedEvent> captor = ArgumentCaptor.forClass(ReceiptVerifiedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().userId()).isEqualTo(USER_ID);
     }
 
     private VisitRequest request(int totalAmount) {
@@ -188,7 +204,7 @@ class VerificationServiceImplTest {
 
     private void givenTokenAndBakery(int amount) {
         when(receiptTokenService.consumeToken(TOKEN, USER_ID, STORE_ID)).thenReturn(ticket(amount));
-        when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
+        when(bakeryRepository.findByIdAndDeletedAtIsNull(STORE_ID)).thenReturn(Optional.of(bakery()));
         when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
         when(receiptHashService.create(any(), any(), any(), any())).thenReturn(HASH);
     }

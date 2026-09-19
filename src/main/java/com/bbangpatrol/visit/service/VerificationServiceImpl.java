@@ -4,7 +4,7 @@ import com.bbangpatrol.bakery.entity.Bakery;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.util.code.ErrorCode;
-import com.bbangpatrol.mission.service.MissionEvaluator;
+import com.bbangpatrol.visit.event.ReceiptVerifiedEvent;
 import com.bbangpatrol.ocr.service.ReceiptTokenService;
 import com.bbangpatrol.point.service.PointService;
 import com.bbangpatrol.user.repository.UserRepository;
@@ -16,6 +16,7 @@ import com.bbangpatrol.visit.repository.VisitDetailRepository;
 import com.bbangpatrol.visit.repository.VisitRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +32,7 @@ public class VerificationServiceImpl implements VerificationService {
     private final ReceiptHashService receiptHashService;
     private final ReceiptDuplicateChecker receiptDuplicateChecker;
     private final PointService pointService;
-    private final MissionEvaluator missionEvaluator;
+    private final ApplicationEventPublisher eventPublisher;
 
     private final BakeryRepository bakeryRepository;
     private final UserRepository userRepository;
@@ -67,7 +68,7 @@ public class VerificationServiceImpl implements VerificationService {
         }
 
         // 2. 빵집 조회
-        Bakery bakery = bakeryRepository.findById(storeId)
+        Bakery bakery = bakeryRepository.findByIdAndDeletedAtIsNull(storeId)
                 .orElseThrow(() ->
                         new ApiException(ErrorCode.BAKERY_NOT_FOUND)
                 );
@@ -114,11 +115,14 @@ public class VerificationServiceImpl implements VerificationService {
         // 총 금액으로 포인트 계산. 1000원당 100포인트라서 1000으로 나눈 후에 100 곱하기
         int point = (totalAmount / 1000) * 100;
 
-        // 포인트 적립
-        pointService.updatePoint(userId, point, true);
+        // 1000원 미만이면 0포인트다. 적립 내역에 0원 행을 남기지 않는다
+        if (point > 0) {
+            pointService.updatePoint(userId, point, true, "영수증 인증");
+        }
 
-        // 영수증 / 빵집 방문 미션 진행도 갱신
-        missionEvaluator.onReceiptVerified(userId, bakery.getRegion());
+        // 영수증 / 빵집 방문 미션 진행도 갱신은 커밋 뒤에 한다.
+        // 같은 트랜잭션에서 돌리면 미션 쪽 오류가 인증 자체를 롤백시킨다 (MissionEventListener 참고)
+        eventPublisher.publishEvent(new ReceiptVerifiedEvent(userId, bakery.getRegion()));
 
         return new VisitResponse(
                 visit.getId(),

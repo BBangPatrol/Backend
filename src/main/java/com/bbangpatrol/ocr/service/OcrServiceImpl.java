@@ -8,6 +8,7 @@ import com.bbangpatrol.ocr.client.GeminiClient;
 import com.bbangpatrol.ocr.client.OcrClient;
 import com.bbangpatrol.ocr.client.ReceiptImageValidator;
 import com.bbangpatrol.ocr.dto.OcrResponse;
+import com.bbangpatrol.ocr.dto.ReceiptMatchResponse;
 import com.bbangpatrol.ocr.dto.ReceiptParseResult;
 import com.bbangpatrol.visit.service.ReceiptDuplicateChecker;
 import com.bbangpatrol.visit.service.ReceiptHashService;
@@ -31,6 +32,7 @@ public class OcrServiceImpl implements OcrService {
     private final GeminiClient geminiClient;
     private final BakeryRepository bakeryRepository;
     private final ReceiptStoreMatcher storeMatcher;
+    private final StoreResolver storeResolver;
 
     // 영수증 등록 기한. 시연 기간에 찍은 영수증을 계속 쓸 수 있도록 90일로 뒀다
     private static final int RECEIPT_VALID_DAYS = 90;
@@ -46,6 +48,75 @@ public class OcrServiceImpl implements OcrService {
     public OcrResponse getInfo(Long userId, Long storeId, MultipartFile receipt) {
         log.info("[OCR SERVICE] 영수증에서 정보 꺼내기 시작!!! userId: {}, storedId: {}", userId, storeId);
 
+        ReceiptParseResult parsedResult = readReceipt(receipt);
+
+        // storeId를 통해서 영수증 정보에서 해당 가게를 진짜 방문한 건지 확인
+        Bakery bakery = bakeryRepository
+                .findByIdAndDeletedAtIsNull(storeId)
+                .orElseThrow(() -> new ApiException(ErrorCode.BAKERY_NOT_FOUND));
+
+        verifyStore(bakery, parsedResult);
+
+        String verificationToken = checkDuplicateAndIssueToken(userId, bakery, parsedResult);
+
+        return new OcrResponse(
+                parsedResult.bakeryName(),
+                parsedResult.date(),
+                parsedResult.amount(),
+                parsedResult.menu(),
+                verificationToken
+        );
+    }
+
+
+
+    /**
+     * 가게를 고르지 않고 영수증만 올리는 경로.
+     * 영수증에서 읽은 값으로 가게를 찾아내고, 찾은 가게로 나머지 검증을 그대로 태운다.
+     * 발급하는 토큰에 storeId 가 담기므로 방문 등록(2단계)은 기존 API 를 그대로 쓴다.
+     */
+    @Override
+    public ReceiptMatchResponse getInfoByReceipt(Long userId, MultipartFile receipt) {
+        log.info("[OCR SERVICE] 영수증만으로 가게 찾기 시작!!! userId: {}", userId);
+
+        ReceiptParseResult parsedResult = readReceipt(receipt);
+
+        StoreResolver.Resolution resolution = storeResolver.resolve(parsedResult);
+
+        if (!resolution.isMatched()) {
+            // 못 찾은 이유마다 사용자가 할 수 있는 일이 다르다.
+            // 하나로 뭉뚱그리면 "주소를 못 읽은 것"이 "등록되지 않은 가게"로 안내돼 오해를 준다.
+            log.info("[OCR SERVICE] 가게를 특정하지 못했다. 사유={}, 후보={}",
+                    resolution.reason(), resolution.candidates().size());
+            throw new ApiException(switch (resolution.reason()) {
+                // 후보가 여럿이면 고르지 않는다. 가게를 고르는 기존 흐름으로 보내는 편이 낫다
+                case AMBIGUOUS -> ErrorCode.RECEIPT_STORE_AMBIGUOUS;
+                // 등록된 가게이긴 한데 다른 지점이다 (가게를 고르는 흐름과 같은 문구)
+                case BRANCH_MISMATCH -> ErrorCode.RECEIPT_STORE_BRANCH_MISMATCH;
+                // 재촬영하면 되는 경우다
+                case ADDRESS_UNREADABLE -> ErrorCode.RECEIPT_ADDRESS_MISSING;
+                default -> ErrorCode.RECEIPT_STORE_NOT_REGISTERED;
+            });
+        }
+
+        Bakery bakery = resolution.matched();
+        log.info("[OCR SERVICE] 영수증으로 찾은 가게: {}({})", bakery.getName(), bakery.getId());
+
+        String verificationToken = checkDuplicateAndIssueToken(userId, bakery, parsedResult);
+
+        return new ReceiptMatchResponse(
+                bakery.getId(),
+                bakery.getName(),
+                parsedResult.bakeryName(),
+                parsedResult.date(),
+                parsedResult.amount(),
+                parsedResult.menu(),
+                verificationToken
+        );
+    }
+
+    /** 이미지 검증 → OCR → LLM 파싱 → 필수값·기한 검증. 두 경로가 공유한다. */
+    private ReceiptParseResult readReceipt(MultipartFile receipt) {
         // OCR 전에 이미지 검증부터 실시
         imageValidator.validate(receipt);
 
@@ -74,17 +145,18 @@ public class OcrServiceImpl implements OcrService {
         validateReceiptDate(parsedResult.date());
         log.info("[OCR SERVICE] 영수증 만료 기한 검증 통과!!");
 
-        // storeId를 통해서 영수증 정보에서 해당 가게를 진짜 방문한 건지 확인
-        Bakery bakery = bakeryRepository
-                .findByIdAndDeletedAtIsNull(storeId)
-                .orElseThrow(() -> new ApiException(ErrorCode.BAKERY_NOT_FOUND));
+        return parsedResult;
+    }
 
-        verifyStore(bakery, parsedResult);
-
-        // 해시는 "이 영수증"을 가리키는 값이므로 가게에 저장된 번호가 아니라 영수증에서 읽은 번호로 만든다.
-        // (사업자번호를 모르는 가게는 저장된 값이 NULL 이라 모든 가게의 해시가 한 자리에서 뭉개진다.
-        //  번호를 아는 가게는 위에서 두 값이 같은 것을 확인했고 ReceiptHashService 가 숫자만 남기므로
-        //  결과 해시가 달라지지 않는다 — 이미 저장된 중복 방지 이력도 그대로 유효하다.)
+    /**
+     * 중복 사용을 확인하고 방문 등록용 토큰을 발급한다.
+     *
+     * 해시는 "이 영수증"을 가리키는 값이므로 가게에 저장된 번호가 아니라 영수증에서 읽은 번호로 만든다
+     * (사업자번호를 모르는 가게는 저장된 값이 NULL 이라 모든 가게의 해시가 한 자리에서 뭉개진다).
+     * 토큰에는 방문 등록(2단계)이 쓸 값을 통째로 담는다. 2단계가 요청 본문의 금액·날짜를 쓰면
+     * 여기서 무엇을 검증하든 다른 값으로 저장할 수 있다.
+     */
+    private String checkDuplicateAndIssueToken(Long userId, Bakery bakery, ReceiptParseResult parsedResult) {
         LocalDate receiptDate = LocalDate.parse(parsedResult.date());
 
         String receiptHash = receiptHashService.create(
@@ -100,11 +172,6 @@ public class OcrServiceImpl implements OcrService {
         }
         log.info("[OCR SERVICE] 영수증 사용 가능 여부 확인 완료 - 통과!!");
 
-
-
-        // 여기까지 왔으면 인증도 된 거니까 영수증 승인번호 토큰으로 발급해서 전달(유효기간 10분짜리임)
-        // 방문 등록(2단계)이 쓸 값을 통째로 토큰에 실어 보낸다.
-        // 2단계가 요청 본문의 금액·날짜를 쓰면, 여기서 무엇을 검증하든 다른 값으로 저장할 수 있다.
         String verificationToken = receiptTokenService.issueToken(
                 new ReceiptTokenService.ReceiptTicket(
                         userId,
@@ -116,16 +183,8 @@ public class OcrServiceImpl implements OcrService {
                 )
         );
         log.info("[OCR SERVICE] 영수증 인증을 위한 토큰 발행!!");
-
-        return new OcrResponse(
-                parsedResult.bakeryName(),
-                parsedResult.date(),
-                parsedResult.amount(),
-                parsedResult.menu(),
-                verificationToken
-        );
+        return verificationToken;
     }
-
 
     /**
      * 영수증이 사용자가 고른 가게의 것인지 본다.

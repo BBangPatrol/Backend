@@ -66,7 +66,7 @@ class AuthServiceImplTest {
     @DisplayName("신규 가입이면 300포인트를 적립하고 내역에도 남긴다")
     void grantsSignupBonusToNewUser() {
         givenKakao();
-        when(userRepository.findByKakaoId(String.valueOf(KAKAO_ID))).thenReturn(null);
+        when(userRepository.findByKakaoIdAndDeletedAtIsNull(String.valueOf(KAKAO_ID))).thenReturn(null);
         when(userRepository.save(any(User.class))).thenReturn(user(7L));
 
         LoginResult result = authService.login(new LoginRequest(CODE));
@@ -80,7 +80,7 @@ class AuthServiceImplTest {
     @DisplayName("기존 회원이 다시 로그인하면 포인트를 주지 않는다")
     void doesNotGrantBonusOnReturningLogin() {
         givenKakao();
-        when(userRepository.findByKakaoId(String.valueOf(KAKAO_ID))).thenReturn(user(7L));
+        when(userRepository.findByKakaoIdAndDeletedAtIsNull(String.valueOf(KAKAO_ID))).thenReturn(user(7L));
 
         LoginResult result = authService.login(new LoginRequest(CODE));
 
@@ -105,7 +105,7 @@ class AuthServiceImplTest {
     @DisplayName("가입한 사용자 본인에게 지급된다")
     void grantsBonusToTheCreatedUser() {
         givenKakao();
-        when(userRepository.findByKakaoId(String.valueOf(KAKAO_ID))).thenReturn(null);
+        when(userRepository.findByKakaoIdAndDeletedAtIsNull(String.valueOf(KAKAO_ID))).thenReturn(null);
         when(userRepository.save(any(User.class))).thenReturn(user(42L));
 
         authService.login(new LoginRequest(CODE));

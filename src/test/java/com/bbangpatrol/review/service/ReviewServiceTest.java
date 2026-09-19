@@ -5,7 +5,7 @@ import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.util.code.ErrorCode;
-import com.bbangpatrol.mission.service.MissionEvaluator;
+import com.bbangpatrol.review.event.ReviewCreatedEvent;
 import com.bbangpatrol.review.dto.ReviewCreatedRequest;
 import com.bbangpatrol.review.dto.ReviewListResponse;
 import com.bbangpatrol.review.dto.ReviewResponse;
@@ -31,6 +31,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -87,7 +88,7 @@ class ReviewServiceTest {
     @Mock
     private VisitDetailRepository visitDetailRepository;
     @Mock
-    private MissionEvaluator missionEvaluator;
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private ReviewService reviewService;
@@ -106,7 +107,7 @@ class ReviewServiceTest {
 
         // 방문 기록이 없으면 리뷰 행 자체가 만들어지면 안 된다
         verify(reviewRepository, never()).save(any());
-        verify(missionEvaluator, never()).onReviewCreated(anyLong(), any());
+        verify(eventPublisher, never()).publishEvent(any(ReviewCreatedEvent.class));
         verify(bakeryRepository, never()).refreshAvgRating(anyLong());
     }
 
