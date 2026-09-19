@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Service
@@ -43,11 +44,27 @@ public class VerificationServiceImpl implements VerificationService {
     public VisitResponse doVerification(Long userId, Long storeId, VisitRequest request) {
         log.info("[Verification Service] 사용자 영수증 인증 처리 시작. userId: {}, storeId: {}", userId, storeId);
 
-        // 토큰 전달해서 사용자 영수증 승인번호 가져오기
+        // 토큰을 소모해서 1단계가 영수증에서 읽은 값을 가져온다.
+        // 발급받은 사용자·가게가 아니면 여기서 막힌다.
         ReceiptTokenService.ReceiptTicket ticket =
-                receiptTokenService.consumeToken(request.getVerificationToken());
+                receiptTokenService.consumeToken(request.getVerificationToken(), userId, storeId);
         String receiptNum = ticket.receiptNum();
         log.info("[Verification Service] 토큰을 통해 조회한 사용자의 영수증 승인번호 조회 {}", receiptNum);
+
+        // 저장·지급에 쓰는 값은 요청 본문이 아니라 토큰에 담긴 값이다.
+        // 본문 값을 쓰면 금액을 바꿔 보내는 것만으로 포인트를 늘리고 중복 방지 해시를 피할 수 있다.
+        // (옛 토큰에는 금액·날짜가 없어 그때는 예전처럼 본문 값으로 돌아간다.)
+        int totalAmount = ticket.amount() != null ? ticket.amount() : request.getTotalAmount();
+        LocalDate visitedAt = ticket.date() != null ? ticket.date() : request.getDate();
+
+        if (ticket.amount() != null && !ticket.amount().equals(request.getTotalAmount())) {
+            log.warn("[Verification Service] 요청 본문 금액이 영수증과 다르다. 영수증={}, 본문={}",
+                    ticket.amount(), request.getTotalAmount());
+        }
+        if (ticket.date() != null && !ticket.date().equals(request.getDate())) {
+            log.warn("[Verification Service] 요청 본문 날짜가 영수증과 다르다. 영수증={}, 본문={}",
+                    ticket.date(), request.getDate());
+        }
 
         // 2. 빵집 조회
         Bakery bakery = bakeryRepository.findById(storeId)
@@ -66,8 +83,8 @@ public class VerificationServiceImpl implements VerificationService {
         String receiptHash = receiptHashService.create(
                 ticket.businessNumber() != null ? ticket.businessNumber() : bakery.getBusinessNumber(),
                 receiptNum,
-                request.getDate(),
-                request.getTotalAmount()
+                visitedAt,
+                totalAmount
         );
 
         // DB 중복 조회해서 없으면 인증 처리. 시연용으로 열어두면 사용자별로만 막는다
@@ -85,8 +102,8 @@ public class VerificationServiceImpl implements VerificationService {
 
         // 8. 개별 방문 기록 저장
         VisitDetail visitDetail = VisitDetail.builder()
-                .totalAmount(request.getTotalAmount())
-                .visitedAt(request.getDate())
+                .totalAmount(totalAmount)
+                .visitedAt(visitedAt)
                 .receiptHash(receiptHash)
                 .createdAt(LocalDateTime.now())
                 .visit(visit)
@@ -95,7 +112,7 @@ public class VerificationServiceImpl implements VerificationService {
         visitDetailRepository.save(visitDetail);
 
         // 총 금액으로 포인트 계산. 1000원당 100포인트라서 1000으로 나눈 후에 100 곱하기
-        int point = (request.getTotalAmount() / 1000) * 100;
+        int point = (totalAmount / 1000) * 100;
 
         // 포인트 적립
         pointService.updatePoint(userId, point, true);

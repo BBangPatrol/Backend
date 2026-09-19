@@ -79,10 +79,12 @@ public class OcrServiceImpl implements OcrService {
         // (사업자번호를 모르는 가게는 저장된 값이 NULL 이라 모든 가게의 해시가 한 자리에서 뭉개진다.
         //  번호를 아는 가게는 위에서 두 값이 같은 것을 확인했고 ReceiptHashService 가 숫자만 남기므로
         //  결과 해시가 달라지지 않는다 — 이미 저장된 중복 방지 이력도 그대로 유효하다.)
+        LocalDate receiptDate = LocalDate.parse(parsedResult.date());
+
         String receiptHash = receiptHashService.create(
                 parsedResult.businessNumber(),
                 parsedResult.receiptNum(),
-                LocalDate.parse(parsedResult.date()),
+                receiptDate,
                 parsedResult.amount()
         );
 
@@ -95,12 +97,17 @@ public class OcrServiceImpl implements OcrService {
 
 
         // 여기까지 왔으면 인증도 된 거니까 영수증 승인번호 토큰으로 발급해서 전달(유효기간 10분짜리임)
-        // 방문 등록(2단계)이 같은 해시를 다시 만들 수 있게 영수증의 사업자번호도 토큰에 실어 보낸다.
-        // 그쪽에서 가게에 저장된 번호를 쓰면 번호를 모르는 가게의 해시가 여기서 만든 것과 달라진다.
+        // 방문 등록(2단계)이 쓸 값을 통째로 토큰에 실어 보낸다.
+        // 2단계가 요청 본문의 금액·날짜를 쓰면, 여기서 무엇을 검증하든 다른 값으로 저장할 수 있다.
         String verificationToken = receiptTokenService.issueToken(
-                userId,
-                parsedResult.receiptNum(),
-                parsedResult.businessNumber()
+                new ReceiptTokenService.ReceiptTicket(
+                        userId,
+                        bakery.getId(),
+                        parsedResult.receiptNum(),
+                        parsedResult.businessNumber(),
+                        parsedResult.amount(),
+                        receiptDate
+                )
         );
         log.info("[OCR SERVICE] 영수증 인증을 위한 토큰 발행!!");
 
