@@ -94,6 +94,9 @@ public class ReviewService {
         // 리뷰 미션 진행도 갱신
         missionEvaluator.onReviewCreated(userId, bakery.getRegion());
 
+        // 평점은 bakery.avg_rating 에 저장된 값을 내려주므로 리뷰가 늘면 그 값도 다시 채운다
+        bakeryRepository.refreshAvgRating(bakery.getId());
+
         return review;
     }
 
@@ -216,6 +219,10 @@ public class ReviewService {
         if (request.deleteImages() != null && !request.deleteImages().isEmpty()) {
             deleteImages(newReview, request.deleteImages());
         }
+
+        // 별점이 바뀌었을 수 있으니 가게 평점을 다시 채운다
+        bakeryRepository.refreshAvgRating(newReview.getBakery().getId());
+
         return newReview;
     }
 
@@ -226,6 +233,9 @@ public class ReviewService {
         if (review.getUser().getId() != userId) throw new ApiException(ErrorCode.USER_UNAUTHORIZE);
 
         review.softDelete();
+
+        // 지운 별점이 평균에서 빠지도록 다시 채운다. 마지막 리뷰였다면 NULL 이 된다
+        bakeryRepository.refreshAvgRating(review.getBakery().getId());
     }
 
     @Transactional

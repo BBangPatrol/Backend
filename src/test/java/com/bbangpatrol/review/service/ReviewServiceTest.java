@@ -53,6 +53,7 @@ import static org.mockito.Mockito.when;
  * 리뷰는 영수증 인증한 방문 한 건에 하나씩만 달린다. 그 규칙과, 가게 리뷰 목록의 오프셋 페이징을 검증한다.
  * findReviewable 쿼리 자체(소프트 삭제된 리뷰를 비운 것으로 볼지 등)는 DB 가 있어야 확인할 수 있어
  * 여기서는 서비스가 그 쿼리에 무엇을 넘기고 결과를 어떻게 쓰는지까지만 본다.
+ * 가게 평점 재계산도 같은 이유로(평균은 UPDATE 문 안에서 계산된다) 호출 여부까지만 본다.
  */
 @ExtendWith(MockitoExtension.class)
 class ReviewServiceTest {
@@ -99,6 +100,7 @@ class ReviewServiceTest {
         // 방문 기록이 없으면 리뷰 행 자체가 만들어지면 안 된다
         verify(reviewRepository, never()).save(any());
         verify(missionEvaluator, never()).onReviewCreated(anyLong(), any());
+        verify(bakeryRepository, never()).refreshAvgRating(anyLong());
     }
 
     @Test
@@ -178,6 +180,44 @@ class ReviewServiceTest {
 
         // merge 로 deletedAt 이 null 이 되면 인증 한 번에 살아 있는 리뷰가 둘이 될 수 있다
         verify(reviewRepository, never()).save(any());
+        verify(bakeryRepository, never()).refreshAvgRating(anyLong());
+    }
+
+    @Test
+    @DisplayName("리뷰를 쓰면 가게 평점을 다시 계산한다")
+    void refreshesAvgRatingOnCreate() {
+        when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
+        when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
+        when(visitDetailRepository.findReviewable(eq(USER_ID), eq(STORE_ID), any(Pageable.class)))
+                .thenReturn(List.of(visitDetail()));
+        when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        reviewService.createReview(USER_ID, STORE_ID, request());
+
+        // 평점은 bakery.avg_rating 에 저장된 값을 그대로 내려주므로 여기서 다시 채워야 한다
+        verify(bakeryRepository).refreshAvgRating(STORE_ID);
+    }
+
+    @Test
+    @DisplayName("리뷰를 수정하면 가게 평점을 다시 계산한다")
+    void refreshesAvgRatingOnUpdate() {
+        when(reviewRepository.findById(11L)).thenReturn(Optional.of(reviewOf(11L)));
+        when(reviewRepository.save(any(Review.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        reviewService.updateReview(USER_ID, 11L, new ReviewUpdatedRequest(2, "별점만 내렸다", null, null, null, null));
+
+        verify(bakeryRepository).refreshAvgRating(STORE_ID);
+    }
+
+    @Test
+    @DisplayName("리뷰를 삭제하면 가게 평점을 다시 계산한다")
+    void refreshesAvgRatingOnDelete() {
+        when(reviewRepository.findById(11L)).thenReturn(Optional.of(reviewOf(11L)));
+
+        reviewService.deleteReview(USER_ID, 11L);
+
+        // 마지막 리뷰였다면 이 호출로 avg_rating 이 NULL(별점 없음)이 된다
+        verify(bakeryRepository).refreshAvgRating(STORE_ID);
     }
 
     @Test
