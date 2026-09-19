@@ -50,6 +50,7 @@ class VerificationServiceImplTest {
     private static final long STORE_ID = 101L;
     private static final String TOKEN = "verification-token";
     private static final String RECEIPT_NUM = "0001";
+    private static final String BUSINESS_NUMBER = "123-45-67890";
     private static final String HASH = "hashed-receipt";
 
     @Mock
@@ -77,7 +78,7 @@ class VerificationServiceImplTest {
     @Test
     @DisplayName("이미 쓴 영수증이면 막고 포인트도 방문 기록도 남기지 않는다")
     void rejectsAlreadyUsedReceipt() {
-        givenTokenAndBakery();
+        givenTokenAndBakery(12000);
         when(receiptDuplicateChecker.isAlreadyUsed(HASH, USER_ID)).thenReturn(true);
 
         assertThatThrownBy(() -> verificationService.doVerification(USER_ID, STORE_ID, request(12000)))
@@ -93,7 +94,7 @@ class VerificationServiceImplTest {
     @Test
     @DisplayName("정상 인증이면 방문 횟수가 오르고 방문 상세가 저장된다")
     void savesVisitDetailAndBumpsCount() {
-        Visit visit = givenTokenBakeryAndVisit();
+        Visit visit = givenTokenBakeryAndVisit(12000);
 
         VisitResponse response = verificationService.doVerification(USER_ID, STORE_ID, request(12000));
 
@@ -113,7 +114,7 @@ class VerificationServiceImplTest {
     @Test
     @DisplayName("포인트는 1000원당 100점이고 1000원 미만은 버린다")
     void awardsHundredPointsPerThousandWon() {
-        givenTokenBakeryAndVisit();
+        givenTokenBakeryAndVisit(12900);
 
         VisitResponse response = verificationService.doVerification(USER_ID, STORE_ID, request(12900));
 
@@ -125,7 +126,7 @@ class VerificationServiceImplTest {
     @Test
     @DisplayName("1000원 미만 영수증은 0포인트로 처리된다")
     void awardsNothingBelowOneThousandWon() {
-        givenTokenBakeryAndVisit();
+        givenTokenBakeryAndVisit(900);
 
         VisitResponse response = verificationService.doVerification(USER_ID, STORE_ID, request(900));
 
@@ -136,7 +137,7 @@ class VerificationServiceImplTest {
     @Test
     @DisplayName("해시는 가게 사업자번호와 영수증 정보를 함께 넣어 만든다")
     void hashesBusinessNumberWithReceiptFields() {
-        givenTokenBakeryAndVisit();
+        givenTokenBakeryAndVisit(12000);
 
         verificationService.doVerification(USER_ID, STORE_ID, request(12000));
 
@@ -144,9 +145,29 @@ class VerificationServiceImplTest {
     }
 
     @Test
+    @DisplayName("저장 금액과 날짜는 요청 본문이 아니라 영수증에서 읽은 값이다")
+    void usesTicketValuesOverRequestBody() {
+        givenTokenBakeryAndVisit(12000);
+
+        // 본문으로 큰 금액과 엉뚱한 날짜를 보내도 무시돼야 한다.
+        // 그러지 않으면 금액만 바꿔 보내 포인트를 늘리고 중복 방지 해시를 매번 피할 수 있다.
+        VisitResponse response = verificationService.doVerification(
+                USER_ID, STORE_ID, new VisitRequest(99_999_000, LocalDate.of(2030, 1, 1), TOKEN));
+
+        ArgumentCaptor<VisitDetail> captor = ArgumentCaptor.forClass(VisitDetail.class);
+        verify(visitDetailRepository).save(captor.capture());
+        assertThat(captor.getValue().getTotalAmount()).isEqualTo(12000);
+        assertThat(captor.getValue().getVisitedAt()).isEqualTo(LocalDate.of(2026, 9, 5));
+
+        assertThat(response.getPoint()).isEqualTo(1200);
+        verify(pointService).updatePoint(USER_ID, 1200, true);
+        verify(receiptHashService).create(BUSINESS_NUMBER, RECEIPT_NUM, LocalDate.of(2026, 9, 5), 12000);
+    }
+
+    @Test
     @DisplayName("없는 빵집이면 토큰만 쓰고 막힌다")
     void rejectsUnknownBakery() {
-        when(receiptTokenService.consumeToken(TOKEN)).thenReturn(RECEIPT_NUM);
+        when(receiptTokenService.consumeToken(TOKEN, USER_ID, STORE_ID)).thenReturn(ticket(12000));
         when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> verificationService.doVerification(USER_ID, STORE_ID, request(12000)))
@@ -160,15 +181,20 @@ class VerificationServiceImplTest {
         return new VisitRequest(totalAmount, LocalDate.of(2026, 9, 5), TOKEN);
     }
 
-    private void givenTokenAndBakery() {
-        when(receiptTokenService.consumeToken(TOKEN)).thenReturn(RECEIPT_NUM);
+    private ReceiptTokenService.ReceiptTicket ticket(int amount) {
+        return new ReceiptTokenService.ReceiptTicket(
+                USER_ID, STORE_ID, RECEIPT_NUM, BUSINESS_NUMBER, amount, LocalDate.of(2026, 9, 5));
+    }
+
+    private void givenTokenAndBakery(int amount) {
+        when(receiptTokenService.consumeToken(TOKEN, USER_ID, STORE_ID)).thenReturn(ticket(amount));
         when(bakeryRepository.findById(STORE_ID)).thenReturn(Optional.of(bakery()));
         when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user()));
         when(receiptHashService.create(any(), any(), any(), any())).thenReturn(HASH);
     }
 
-    private Visit givenTokenBakeryAndVisit() {
-        givenTokenAndBakery();
+    private Visit givenTokenBakeryAndVisit(int amount) {
+        givenTokenAndBakery(amount);
         lenient().when(receiptDuplicateChecker.isAlreadyUsed(HASH, USER_ID)).thenReturn(false);
 
         Visit visit = Visit.create(user(), bakery());
