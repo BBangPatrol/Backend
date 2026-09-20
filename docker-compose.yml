@@ -13,6 +13,8 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - REDIS_HOST=redis
+      # 없으면 컨테이너가 UTC 로 돌아 LocalDateTime.now() 가 9시간 이르게 저장된다
+      - TZ=Asia/Seoul
     depends_on:
       - redis
 
