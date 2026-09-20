@@ -115,6 +115,7 @@ public class UserResponseDTO {
     public static class ReviewDTO {
         Long bakeryId;
         String bakeryName;
+        Long reviewId;
         Integer rating;
         String content;
         List<Long> keywords;
