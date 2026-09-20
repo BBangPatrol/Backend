@@ -190,6 +190,7 @@ public class UserService {
                 .map(review -> UserResponseDTO.ReviewDTO.builder()
                         .bakeryId(review.getBakery().getId())
                         .bakeryName(review.getBakery().getName())
+                        .reviewId(review.getId())
                         .rating(review.getRating())
                         .content(review.getContent())
                         .keywords(review.getReviewKeywords().stream().map(ReviewKeyword::getKeyword).map(Keyword::getId).toList())
