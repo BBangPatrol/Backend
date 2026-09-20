@@ -28,9 +28,18 @@
 --         bbangpatrol mission_progress > mp_before_backfill_$(date +%Y%m%d).sql
 --
 -- 실행:
+--   -- 1) DRY RUN (아무것도 바꾸지 않고, 바뀔 내용만 보여준다)
 --   mysql --default-character-set=utf8mb4 -h <host> -u bbangpatrol -p bbangpatrol \
 --     < backfill-mission-progress.sql
+--
+--   -- 2) 실제 반영 (@APPLY 를 1 로 켜서 같은 파일을 흘려보낸다)
+--   sed 's/SET @APPLY = 0/SET @APPLY = 1/' backfill-mission-progress.sql \
+--     | mysql --default-character-set=utf8mb4 -h <host> -u bbangpatrol -p bbangpatrol
 -- =============================================================
+
+-- 0 = DRY RUN (기본값), 1 = 실제 반영.
+-- 파일을 고치지 말고 위의 sed 로 켜라. 실수로 반영되는 걸 막으려고 기본이 0 이다.
+SET @APPLY = 0;
 
 -- -------------------------------------------------------------
 -- 1) 미션별 "정답" 진행도를 계산해서 임시 테이블에 담는다.
@@ -147,34 +156,38 @@ SELECT b.user_id, b.mission_id, m.title,
 
 -- -------------------------------------------------------------
 -- 3) 실제 반영
---    위 DRY RUN 결과를 확인한 뒤 아래 블록의 주석을 풀고 다시 실행한다.
+--    @APPLY = 0 이면 아래 두 문장은 한 행도 건드리지 않는다.
 -- -------------------------------------------------------------
--- START TRANSACTION;
---
--- -- 3-1) 없던 행 생성
--- INSERT INTO mission_progress (user_id, mission_id, `count`, status, completed_at, created_at, updated_at)
--- SELECT b.user_id,
---        b.mission_id,
---        b.counted,
---        CASE WHEN b.counted >= b.target_count THEN 'not_received' ELSE 'in_progress' END,
---        CASE WHEN b.counted >= b.target_count THEN NOW() ELSE NULL END,
---        NOW(),
---        NOW()
---   FROM mp_backfill b
---  WHERE NOT EXISTS (SELECT 1 FROM mission_progress mp
---                     WHERE mp.user_id = b.user_id AND mp.mission_id = b.mission_id);
---
--- -- 3-2) 진행중인 기존 행을 정답까지 끌어올린다. 올리기만 하고 내리지 않는다.
--- UPDATE mission_progress mp
---   JOIN mp_backfill b
---     ON mp.user_id = b.user_id AND mp.mission_id = b.mission_id
---    SET mp.`count`      = b.counted,
---        mp.status       = CASE WHEN b.counted >= b.target_count THEN 'not_received' ELSE 'in_progress' END,
---        mp.completed_at = CASE WHEN b.counted >= b.target_count THEN COALESCE(mp.completed_at, NOW()) ELSE mp.completed_at END,
---        mp.updated_at   = NOW()
---  WHERE mp.status = 'in_progress'
---    AND b.counted > mp.`count`;
---
--- COMMIT;
+START TRANSACTION;
+
+-- 3-1) 없던 행 생성
+INSERT INTO mission_progress (user_id, mission_id, `count`, status, completed_at, created_at, updated_at)
+SELECT b.user_id,
+       b.mission_id,
+       b.counted,
+       CASE WHEN b.counted >= b.target_count THEN 'not_received' ELSE 'in_progress' END,
+       CASE WHEN b.counted >= b.target_count THEN NOW() ELSE NULL END,
+       NOW(),
+       NOW()
+  FROM mp_backfill b
+ WHERE @APPLY = 1
+   AND NOT EXISTS (SELECT 1 FROM mission_progress mp
+                    WHERE mp.user_id = b.user_id AND mp.mission_id = b.mission_id);
+
+-- 3-2) 진행중인 기존 행을 정답까지 끌어올린다. 올리기만 하고 내리지 않는다.
+UPDATE mission_progress mp
+  JOIN mp_backfill b
+    ON mp.user_id = b.user_id AND mp.mission_id = b.mission_id
+   SET mp.`count`      = b.counted,
+       mp.status       = CASE WHEN b.counted >= b.target_count THEN 'not_received' ELSE 'in_progress' END,
+       mp.completed_at = CASE WHEN b.counted >= b.target_count THEN COALESCE(mp.completed_at, NOW()) ELSE mp.completed_at END,
+       mp.updated_at   = NOW()
+ WHERE @APPLY = 1
+   AND mp.status = 'in_progress'
+   AND b.counted > mp.`count`;
+
+COMMIT;
+
+SELECT CASE WHEN @APPLY = 1 THEN '반영 완료' ELSE 'DRY RUN 이라 아무것도 바꾸지 않았다' END AS result;
 
 DROP TEMPORARY TABLE IF EXISTS mp_backfill;
