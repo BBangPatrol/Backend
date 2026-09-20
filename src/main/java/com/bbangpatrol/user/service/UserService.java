@@ -96,11 +96,10 @@ public class UserService {
                 .build();
     }
 
+    // 닉네임은 표시용 이름이라 중복을 막지 않는다. 식별은 userId 로 한다
     @Transactional
     public void editNickname(Long userId, UserRequestDTO.EditNicknameDTO request) {
         User user = getUser(userId);
-        if (userRepository.existsByName(request.getNickname())) throw new ApiException(ErrorCode.NICKNAME_ALREADY_EXISTS);
-
         user.updateNickname(request.getNickname());
     }
 
