@@ -18,8 +18,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     User findByKakaoIdAndDeletedAtIsNull(String kakaoId);
 
-    boolean existsByName(String name);
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM User u WHERE u.id = :id")
     Optional<User> findByIdForUpdate(Long id);
