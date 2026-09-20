@@ -17,6 +17,13 @@ services:
       - TZ=Asia/Seoul
     depends_on:
       - redis
+    # json-file 기본값은 무제한이라 20G 디스크가 로그로 찬다.
+    # 영수증 OCR 원문까지 INFO 로 찍혀 한 건당 줄 수가 많다
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   redis:
     image: redis:7-alpine
@@ -27,6 +34,11 @@ services:
       - redis-data:/data
     expose:
       - "6379"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   redis-data:
