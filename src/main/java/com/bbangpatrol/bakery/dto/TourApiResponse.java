@@ -59,6 +59,9 @@ public record TourApiResponse(Response response) {
             String mapx,
             String mapy,
             String dist,
-            String tel
+            String tel,
+            // 이미지 저작권 유형. Type1 = 공공누리 제1유형, Type3 = 제3유형(변경금지).
+            // 제3유형 이미지는 잘라서 쓰면 안 되므로 화면까지 그대로 내려보낸다.
+            String cpyrhtDivCd
     ) {}
 }

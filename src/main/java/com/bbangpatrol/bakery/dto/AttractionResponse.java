@@ -11,5 +11,7 @@ public record AttractionResponse(
         BigDecimal lat,
         BigDecimal lng,
         Integer distance,
-        String tel
+        String tel,
+        /** TourAPI 이미지 저작권 유형 (Type1 = 공공누리 제1유형, Type3 = 제3유형 변경금지) */
+        String copyrightType
 ) {}

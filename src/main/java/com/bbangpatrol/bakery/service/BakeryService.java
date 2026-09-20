@@ -198,7 +198,8 @@ public class BakeryService {
                 lat,
                 lng,
                 distance,
-                item.tel()
+                item.tel(),
+                item.cpyrhtDivCd()
         );
     }
 }
