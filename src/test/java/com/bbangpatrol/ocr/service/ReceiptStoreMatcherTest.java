@@ -67,6 +67,13 @@ class ReceiptStoreMatcherTest {
         assertThat(matcher.matchesName(seededName, "슬로우브레드")).isTrue();
         assertThat(matcher.matchAddress(seededAddress, "대전 유성구 유성대로 1734-1"))
                 .isEqualTo(AddressMatch.MATCH);
+
+        // 2026-09-20 운영 로그: 같은 영수증인데 OCR 이 상호와 도로명을 띄어 읽었다.
+        //   bakeryName="슬로우 브레드", address="대전 유성구 유성 대로 1734-1"
+        // 도로명 안의 공백 하나 때문에 "대로" 만 도로명으로 잡혀 BRANCH_MISMATCH 로 떨어졌었다.
+        assertThat(matcher.matchesName(seededName, "슬로우 브레드")).isTrue();
+        assertThat(matcher.matchAddress(seededAddress, "대전 유성구 유성 대로 1734-1"))
+                .isEqualTo(AddressMatch.MATCH);
     }
 
     @Test

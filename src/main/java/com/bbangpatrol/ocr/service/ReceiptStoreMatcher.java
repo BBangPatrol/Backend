@@ -29,8 +29,12 @@ public class ReceiptStoreMatcher {
     // 도로명에도 숫자가 들어간다 ("창조2길", "테크노4로"). 이름 부분에 숫자를 허용하되
     // 수량자가 게을러서 "대종로480번길15" 는 "대종로"+"480" 으로 먼저 끊긴다.
     // 도로명과 번호 사이의 경계(#)는 있어도 되고 없어도 된다 — "대종로 480번길" 과 "대종로480번길" 이 같아야 한다.
-    private static final Pattern ROAD =
-            Pattern.compile("([가-힣A-Za-z0-9]{1,20}?(?:대로|로|길))" + BOUNDARY + "?(\\d+(?:-\\d+)?)");
+    // 이름 안쪽에도 경계를 허용한다. OCR 이 "유성 대로" 처럼 도로명을 띄어 읽는 일이 잦은데,
+    // 이걸 막으면 "유성#대로" 를 한 도로명으로 못 읽고 "대로" 만 잡아서 엉뚱한 값이 나온다.
+    // 앞쪽 행정구역까지 같이 걸리지만 roadName 이 떼어낸다.
+    private static final Pattern ROAD = Pattern.compile(
+            "([가-힣A-Za-z0-9][가-힣A-Za-z0-9" + BOUNDARY + "]{0,29}?(?:대로|로|길))"
+                    + BOUNDARY + "?(\\d+(?:-\\d+)?)");
 
     // 도로명을 못 읽었을 때 쓰는 거친 비교. 이 서비스는 대전 전용이라 자치구만 본다.
     private static final Pattern DISTRICT = Pattern.compile("(동구|중구|서구|유성구|대덕구)");
@@ -117,10 +121,15 @@ public class ReceiptStoreMatcher {
         for (int i = captured.length() - 2; i >= 0; i--) {
             char boundary = captured.charAt(i);
             if (boundary == '시' || boundary == '군' || boundary == '구') {
-                return captured.substring(i + 1);
+                return stripBoundary(captured.substring(i + 1));
             }
         }
-        return captured;
+        return stripBoundary(captured);
+    }
+
+    // 도로명 안에 남은 경계는 버린다. "유성#대로" 와 "유성대로" 가 같은 값이어야 한다
+    private String stripBoundary(String value) {
+        return value.replace(BOUNDARY, "");
     }
 
     private String find(Pattern pattern, String value) {
