@@ -1,6 +1,6 @@
 package com.bbangpatrol.common.dto;
 
-public record PageInfo(
+public record CursorPageInfo(
         int size,
         boolean hasNext,
         Long nextCursor

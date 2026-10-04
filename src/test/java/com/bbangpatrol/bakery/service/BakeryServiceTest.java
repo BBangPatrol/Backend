@@ -6,14 +6,15 @@ import com.bbangpatrol.bakery.dto.BakeryDetailResponse;
 import com.bbangpatrol.bakery.dto.BakeryFavoriteResponse;
 import com.bbangpatrol.bakery.dto.BakerySearchRequest;
 import com.bbangpatrol.bakery.dto.BakerySearchResponse;
+import com.bbangpatrol.bakery.dto.HotBakeryResponse;
 import com.bbangpatrol.bakery.entity.Bakery;
-import com.bbangpatrol.bakery.entity.BakeryImage;
 import com.bbangpatrol.bakery.entity.SignatureImage;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.bookmark.entity.Bookmark;
 import com.bbangpatrol.bookmark.repository.BookmarkRepository;
 import com.bbangpatrol.common.enums.Region;
 import com.bbangpatrol.common.exception.ApiException;
+import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
 import com.bbangpatrol.visit.repository.VisitRepository;
@@ -33,6 +34,7 @@ import java.util.stream.LongStream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -51,6 +53,8 @@ class BakeryServiceTest {
     private AttractionCache attractionCache;
     @Mock
     private TourApiClient tourApiClient;
+    @Mock
+    private R2Service r2Service;
 
     @InjectMocks
     private BakeryService bakeryService;
@@ -60,7 +64,7 @@ class BakeryServiceTest {
         Bakery lowerRated = bakery(2L, "빵집 B", "3.5");
         Bakery higherRated = bakery(1L, "빵집 A", "4.8");
         when(bakeryRepository.findBakeryIdsForSearch(
-                any(), any(), any(), any(), any(), any(Pageable.class)))
+                any(), any(), any(), any(), any(), anyBoolean(), any(), any(Pageable.class)))
                 .thenReturn(List.of(1L, 2L));
         when(bakeryRepository.findAllById(List.of(1L, 2L)))
                 .thenReturn(List.of(lowerRated, higherRated));
@@ -70,22 +74,48 @@ class BakeryServiceTest {
                 .thenReturn(List.of(1L));
 
         BakerySearchResponse response = bakeryService.searchBakeries(
-                10L, new BakerySearchRequest("rating", null, null, null, null));
+                10L, new BakerySearchRequest("rating", null, null, null, null, null));
 
         assertThat(response.result()).extracting(item -> item.bakery().id())
                 .containsExactly(1L, 2L);
         assertThat(response.result().get(0).visitCnt()).isEqualTo(12L);
         assertThat(response.result().get(0).likes()).isTrue();
-        assertThat(response.pageInfo().hasNext()).isFalse();
+        assertThat(response.cursorPageInfo().hasNext()).isFalse();
     }
 
     @Test
     void 거리순_검색은_위치가_없으면_실패한다() {
         BakerySearchRequest request = new BakerySearchRequest(
-                "distance", null, null, null, null);
+                "distance", null, null, null, null, null);
 
         assertThatThrownBy(() -> bakeryService.searchBakeries(null, request))
                 .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void 비로그인_상태에서_즐겨찾기_필터를_요청하면_실패한다() {
+        BakerySearchRequest request = new BakerySearchRequest(
+                "rating", null, null, null, null, true);
+
+        assertThatThrownBy(() -> bakeryService.searchBakeries(null, request))
+                .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void 로그인_상태에서_즐겨찾기_필터를_요청하면_레포지토리에_전달된다() {
+        when(bakeryRepository.findBakeryIdsForSearch(
+                any(), any(), any(), any(), any(), anyBoolean(), any(), any(Pageable.class)))
+                .thenReturn(List.of());
+        when(bakeryRepository.findAllById(List.of())).thenReturn(List.of());
+
+        BakerySearchRequest request = new BakerySearchRequest(
+                "rating", null, null, null, null, true);
+
+        bakeryService.searchBakeries(10L, request);
+
+        verify(bakeryRepository).findBakeryIdsForSearch(
+                "rating", null, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO, null, true, 10L,
+                org.springframework.data.domain.PageRequest.of(0, 21));
     }
 
     @Test
@@ -97,17 +127,17 @@ class BakeryServiceTest {
                 .toList();
 
         when(bakeryRepository.findBakeryIdsForSearch(
-                any(), any(), any(), any(), any(), any(Pageable.class)))
+                any(), any(), any(), any(), any(), anyBoolean(), any(), any(Pageable.class)))
                 .thenReturn(searchedIds);
         when(bakeryRepository.findAllById(pageIds)).thenReturn(bakeries);
         when(visitRepository.sumVisitCountsByBakeryIds(pageIds)).thenReturn(new ArrayList<>());
 
         BakerySearchResponse response = bakeryService.searchBakeries(
-                null, new BakerySearchRequest("rating", null, null, null, null));
+                null, new BakerySearchRequest("rating", null, null, null, null, null));
 
         assertThat(response.result()).hasSize(20);
-        assertThat(response.pageInfo().hasNext()).isTrue();
-        assertThat(response.pageInfo().nextCursor()).isEqualTo(20L);
+        assertThat(response.cursorPageInfo().hasNext()).isTrue();
+        assertThat(response.cursorPageInfo().nextCursor()).isEqualTo(20L);
     }
 
     @Test
@@ -132,20 +162,110 @@ class BakeryServiceTest {
                 .region(Region.YUSEONG)
                 .summary("AI 요약")
                 .content("가게 상세 설명")
-                .bakeryImages(List.of(BakeryImage.builder().imageUrl("main.jpg").build()))
-                .signatureImages(List.of(SignatureImage.builder().imageUrl("signature.jpg").build()))
+                .signatureImages(List.of(SignatureImage.builder().imageUrl("bakeries/1/signature_menu.jpg").build()))
                 .build();
         when(bakeryRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(bakery));
         when(visitRepository.sumVisitCountByBakeryId(1L)).thenReturn(7L);
         when(bookmarkRepository.existsByUserIdAndBakeryId(10L, 1L)).thenReturn(true);
+        when(r2Service.getPublicUrl("bakeries/1/signature_menu.jpg")).thenReturn("https://cdn.test/bakeries/1/signature_menu.jpg");
 
         BakeryDetailResponse response = bakeryService.getBakeryDetail(10L, 1L);
 
         assertThat(response.bakery().region()).isEqualTo("유성구");
         assertThat(response.bakery().summary()).isEqualTo("AI 요약");
         assertThat(response.bakery().content()).isEqualTo("가게 상세 설명");
+        assertThat(response.bakery().image())
+                .isEqualTo("https://cdn.test/bakeries/1/signature_menu.jpg");
         assertThat(response.visitCnt()).isEqualTo(7L);
         assertThat(response.likes()).isTrue();
+    }
+
+    @Test
+    void 목록_썸네일은_시그니처_이미지_첫_장을_사용한다() {
+        Bakery bakery = Bakery.builder()
+                .id(1L)
+                .name("빵집 A")
+                .avgRating(new BigDecimal("4.5"))
+                .signatureImages(List.of(SignatureImage.builder()
+                        .imageUrl("bakeries/1/signature_menu.jpg")
+                        .thumbnailUrl("bakeries/1/signature_menu_thumb.jpg")
+                        .build()))
+                .build();
+        when(bakeryRepository.findBakeryIdsForSearch(any(), any(), any(), any(), any(), anyBoolean(), any(), any(Pageable.class)))
+                .thenReturn(List.of(1L));
+        when(bakeryRepository.findAllById(List.of(1L))).thenReturn(List.of(bakery));
+        when(visitRepository.sumVisitCountsByBakeryIds(List.of(1L))).thenReturn(List.of());
+        // 목록은 빵집 20개를 한 번에 받으므로 원본이 아니라 저장된 썸네일 key 를 쓴다
+        when(r2Service.getPublicUrl("bakeries/1/signature_menu_thumb.jpg"))
+                .thenReturn("https://cdn.test/bakeries/1/signature_menu_thumb.jpg");
+
+        BakerySearchResponse response = bakeryService.searchBakeries(null,
+                new BakerySearchRequest("rating", null, null, null, null, null));
+
+        assertThat(response.result().get(0).bakery().image())
+                .isEqualTo("https://cdn.test/bakeries/1/signature_menu_thumb.jpg");
+    }
+
+    @Test
+    void 목록_썸네일이_없으면_원본으로_폴백한다() {
+        Bakery bakery = Bakery.builder()
+                .id(1L)
+                .name("빵집 A")
+                .avgRating(new BigDecimal("4.5"))
+                // thumbnail_url 이 NULL 인 행 (백필 전 데이터나 썸네일 생성 실패)
+                .signatureImages(List.of(SignatureImage.builder()
+                        .imageUrl("bakeries/1/signature_menu.jpg")
+                        .build()))
+                .build();
+        when(bakeryRepository.findBakeryIdsForSearch(any(), any(), any(), any(), any(), anyBoolean(), any(), any(Pageable.class)))
+                .thenReturn(List.of(1L));
+        when(bakeryRepository.findAllById(List.of(1L))).thenReturn(List.of(bakery));
+        when(visitRepository.sumVisitCountsByBakeryIds(List.of(1L))).thenReturn(List.of());
+        when(r2Service.getPublicUrl("bakeries/1/signature_menu.jpg"))
+                .thenReturn("https://cdn.test/bakeries/1/signature_menu.jpg");
+
+        BakerySearchResponse response = bakeryService.searchBakeries(null,
+                new BakerySearchRequest("rating", null, null, null, null, null));
+
+        // 404 가 나가지 않도록 원본 URL 을 내려준다
+        assertThat(response.result().get(0).bakery().image())
+                .isEqualTo("https://cdn.test/bakeries/1/signature_menu.jpg");
+    }
+
+    @Test
+    void 인기_빵집_사진은_시그니처_이미지_첫_장을_사용한다() {
+        Bakery bakery = Bakery.builder()
+                .id(1L)
+                .name("빵집 A")
+                .avgRating(new BigDecimal("4.5"))
+                .signatureImages(List.of(SignatureImage.builder()
+                        .imageUrl("bakeries/1/signature_menu.jpg")
+                        .build()))
+                .build();
+        when(bakeryRepository.findHotBakeries()).thenReturn(List.of(bakery));
+        when(r2Service.getPublicUrl("bakeries/1/signature_menu.jpg"))
+                .thenReturn("https://cdn.test/bakeries/1/signature_menu.jpg");
+
+        HotBakeryResponse.BakeryListDTO response = bakeryService.getHotBakery();
+
+        assertThat(response.getStores().get(0).getImageUrl())
+                .isEqualTo("https://cdn.test/bakeries/1/signature_menu.jpg");
+    }
+
+    @Test
+    void 인기_빵집은_시그니처_사진이_없어도_조회된다() {
+        // 사진 없이 등록된 빵집이 방문 상위에 올라오면 홈 화면 전체가 500 으로 죽었다
+        Bakery bakery = Bakery.builder()
+                .id(1L)
+                .name("사진 없는 빵집")
+                .avgRating(new BigDecimal("4.5"))
+                .build();
+        when(bakeryRepository.findHotBakeries()).thenReturn(List.of(bakery));
+
+        HotBakeryResponse.BakeryListDTO response = bakeryService.getHotBakery();
+
+        assertThat(response.getStores()).hasSize(1);
+        assertThat(response.getStores().get(0).getImageUrl()).isNull();
     }
 
     private Bakery bakery(Long id, String name, String rating) {

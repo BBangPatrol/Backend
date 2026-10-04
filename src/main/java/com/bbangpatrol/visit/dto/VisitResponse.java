@@ -11,5 +11,6 @@ import lombok.Setter;
 @NoArgsConstructor
 public class VisitResponse {
     private Long visitId;
+    private Long visitDetailId;
     private int point;
 }

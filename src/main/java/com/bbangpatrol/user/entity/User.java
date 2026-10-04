@@ -106,6 +106,16 @@ public class User {
 
     public void updateImage(String key) { this.userImage = key; }
 
+    /**
+     * 탈퇴. 행을 바로 지우지 않고 표시만 남긴다 —
+     * 개인정보처리방침이 약속한 보관 기간(30일)이 지나면 AccountPurgeService 가 실제로 지운다.
+     * 리프레시 토큰을 함께 비워야 탈퇴 후 토큰 재발급으로 되살아나지 않는다.
+     */
+    public void withdraw() {
+        this.deletedAt = LocalDateTime.now();
+        this.refreshToken = null;
+    }
+
     public void usePoint(int point) { // 포인트 사용했을 경우 감소 처리
 
         if (this.pointBalance < point) { // 보유 포인트가 부족하면 에러 발생

@@ -1,0 +1,15 @@
+name: bbang-prod
+
+services:
+  backend:
+    image: ghcr.io/bbangpatrol/backend:${IMAGE_TAG:-prod}
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+
+volumes:
+  redis-data:
+    # ~/Backend 에서 띄우던 시절의 볼륨을 그대로 물려받는다.
+    # 새 이름으로 만들면 저장된 refresh token 이 사라져 전 사용자가 다시 로그인해야 한다
+    name: backend_redis-data

@@ -10,6 +10,7 @@ public enum ErrorCode implements BaseErrorCode{
 
     // Auth에 관한 에러들
     NO_KAKAO_CODE(HttpStatus.BAD_REQUEST, "AUTH400", "로그인 요청이 올바르지 않습니다."),
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH401", "리프레시 토큰이 유효하지 않거나 만료되었습니다."),
 
     // OCR에 관한 에러들
     NO_IMAGE_ATTACHED(HttpStatus.BAD_REQUEST, "OCR400", "유효하지 않는 요청입니다."),
@@ -31,9 +32,16 @@ public enum ErrorCode implements BaseErrorCode{
     RECEIPT_TOO_OLD(HttpStatus.BAD_REQUEST, "PARSE400-7", "영수증의 등록 기한이 만료되었습니다."),
     RECEIPT_STORE_MISMATCH(HttpStatus.BAD_REQUEST, "PARSE400-8", "영수증과 인증 가게가 일치하지 않습니다."),
     RECEIPT_BUSINESS_NUMBER_MISSING(HttpStatus.BAD_REQUEST, "PARSE400-9", "영수증에서 사업자번호가 인식되지 않았습니다."),
+    // 같은 브랜드의 다른 지점으로 보이는 경우. 사용자가 할 수 있는 일(지점 다시 고르기)을 알려준다
+    RECEIPT_STORE_BRANCH_MISMATCH(HttpStatus.BAD_REQUEST, "PARSE400-10", "다른 지점의 영수증으로 보입니다. 방문한 지점을 선택해 주세요."),
+    // 사진만 올리는 인증에서 가게를 특정하지 못한 경우
+    RECEIPT_STORE_NOT_REGISTERED(HttpStatus.NOT_FOUND, "PARSE404-1", "빵범대에 등록되지 않은 가게의 영수증입니다."),
+    RECEIPT_STORE_AMBIGUOUS(HttpStatus.CONFLICT, "PARSE409-1", "어느 가게인지 특정하지 못했습니다. 가게를 선택해 주세요."),
+    RECEIPT_ADDRESS_MISSING(HttpStatus.BAD_REQUEST, "PARSE400-11", "영수증에서 주소가 인식되지 않았습니다. 주소가 보이게 다시 촬영해 주세요."),
 
     // 빵집 관련 에러들
     RECEIPT_ALREADY_USED(HttpStatus.CONFLICT, "BAKE002", "이미 사용한 영수증입니다."),
+    INVALID_RECEIPT_TOKEN(HttpStatus.BAD_REQUEST, "BAKE003", "유효하지 않거나 만료된 인증 토큰입니다."),
     BAKERY_NOT_FOUND(HttpStatus.NOT_FOUND, "BAKERY404" , "빵집이 존재하지 않습니다." ),
     ATTRACTION_FETCH_FAILED(HttpStatus.BAD_GATEWAY, "BAKERY502", "근처 관광지 정보를 가져오지 못했습니다."),
 
@@ -45,10 +53,20 @@ public enum ErrorCode implements BaseErrorCode{
     // user에 관한 에러
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER404", "사용자가 존재하지 않습니다."),
     NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "USER409", "닉네임이 중복됩니다."),
-    USER_UNAUTHORIZE(HttpStatus.UNAUTHORIZED, "USER403" , "권한이 없습니다."),
+    USER_UNAUTHORIZE(HttpStatus.FORBIDDEN, "USER403" , "권한이 없습니다."),
 
     // 리뷰 에러,
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "REVIEW404", "리뷰가 존재하지 않습니다."),
+    VISIT_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "REVIEW400", "리뷰를 작성하려면 영수증 인증이 필요합니다."),
+    INVALID_REVIEW_RATING(HttpStatus.BAD_REQUEST, "REVIEW400-2", "별점은 1점부터 5점까지 선택할 수 있습니다."),
+    TOO_MANY_REVIEW_IMAGES(HttpStatus.BAD_REQUEST, "REVIEW400-3", "리뷰 사진은 최대 5장까지 올릴 수 있습니다."),
+    VISIT_DETAIL_REQUIRED(HttpStatus.BAD_REQUEST, "REVIEW400-4", "리뷰를 작성할 방문 기록을 선택해 주세요."),
+    VISIT_STORE_MISMATCH(HttpStatus.BAD_REQUEST, "REVIEW400-5", "해당 가게의 방문 기록이 아닙니다."),
+    VISIT_NOT_FOUND(HttpStatus.NOT_FOUND, "REVIEW404-2", "방문 기록이 존재하지 않습니다."),
+    REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "REVIEW409", "이미 리뷰를 작성한 방문입니다."),
+
+    // 시연용 사진에 관한 에러
+    INVALID_DEMO_CODE(HttpStatus.FORBIDDEN, "DEMO403", "시연 코드가 올바르지 않습니다."),
 
     // R2 에러,
     R2_IO_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "R2500" , "이미지 I/O 요청이 실패했습니다." ),
@@ -58,7 +76,10 @@ public enum ErrorCode implements BaseErrorCode{
     UNAUTHORIZED_401(HttpStatus.UNAUTHORIZED, "COMMON401", "인증이 필요합니다"),
     FORBIDDEN_403(HttpStatus.FORBIDDEN, "COMMON403", "접근이 금지되었습니다"),
     NOT_FOUND_404(HttpStatus.NOT_FOUND, "COMMON404", "요청한 자원을 찾을 수 없습니다"),
-    UNSUPPORTED_MEDIA_TYPE415(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "COMMO405", "지원하지 않는 파일형식입니다."),
+    METHOD_NOT_ALLOWED_405(HttpStatus.METHOD_NOT_ALLOWED, "COMMON405", "허용되지 않은 HTTP 메서드입니다"),
+    EXTERNAL_SERVER_ERROR_502(HttpStatus.BAD_GATEWAY, "COMMON502", "외부 서버 응답에 문제가 발생했습니다"),
+    UNSUPPORTED_MEDIA_TYPE415(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "COMMON415", "지원하지 않는 파일형식입니다."),
+    UPLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "COMMON413", "업로드 용량이 너무 큽니다. 사진은 장당 15MB, 한 번에 60MB 까지 가능합니다."),
     INTERNAL_SERVER_ERROR_500(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON500", "서버 내부 오류가 발생했습니다");
 
     private final HttpStatus status;

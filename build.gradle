@@ -58,6 +58,9 @@ dependencies {
     // DB 마이그레이션 (Flyway). MySQL 은 flyway-mysql 모듈이 별도로 필요함
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-mysql'
+
+    // 업로드 이미지 리사이즈 (순수 Java, 네이티브 의존성 없음)
+    implementation 'net.coobird:thumbnailator:0.4.20'
 }
 
 tasks.named('test') {

@@ -5,12 +5,14 @@ import com.bbangpatrol.bakery.dto.*;
 import com.bbangpatrol.bakery.dto.TourApiResponse.TourItem;
 import com.bbangpatrol.bakery.cache.AttractionCache;
 import com.bbangpatrol.bakery.entity.Bakery;
+import com.bbangpatrol.bakery.entity.SignatureImage;
 import com.bbangpatrol.bakery.enums.AttractionCategory;
 import com.bbangpatrol.bakery.repository.BakeryRepository;
 import com.bbangpatrol.bookmark.entity.Bookmark;
 import com.bbangpatrol.bookmark.repository.BookmarkRepository;
-import com.bbangpatrol.common.dto.PageInfo;
+import com.bbangpatrol.common.dto.CursorPageInfo;
 import com.bbangpatrol.common.exception.ApiException;
+import com.bbangpatrol.common.service.R2Service;
 import com.bbangpatrol.common.util.code.ErrorCode;
 import com.bbangpatrol.user.entity.User;
 import com.bbangpatrol.user.repository.UserRepository;
@@ -41,17 +43,19 @@ public class BakeryService {
     private final VisitRepository visitRepository;
     private final AttractionCache attractionCache;
     private final TourApiClient tourApiClient;
+    private final R2Service r2Service;
 
     @Transactional(readOnly = true)
     public BakerySearchResponse searchBakeries(Long userId, BakerySearchRequest request) {
-        validateSearchRequest(request);
+        validateSearchRequest(userId, request);
 
         String name = StringUtils.hasText(request.name()) ? request.name().trim() : null;
         BigDecimal lat = request.lat() == null ? BigDecimal.ZERO : request.lat();
         BigDecimal lon = request.lon() == null ? BigDecimal.ZERO : request.lon();
+        boolean favoriteOnly = Boolean.TRUE.equals(request.favoriteOnly());
 
         List<Long> bakeryIds = bakeryRepository.findBakeryIdsForSearch(
-                request.sort(), name, lat, lon, request.cursor(),
+                request.sort(), name, lat, lon, request.cursor(), favoriteOnly, userId,
                 PageRequest.of(0, SEARCH_PAGE_SIZE + 1));
 
         boolean hasNext = bakeryIds.size() > SEARCH_PAGE_SIZE;
@@ -65,14 +69,37 @@ public class BakeryService {
                 .map(bakeryMap::get)
                 .filter(Objects::nonNull)
                 .map(bakery -> new BakerySearchItemResponse(
-                        BakerySummaryResponse.from(bakery),
+                        BakerySummaryResponse.from(bakery, r2Service::getPublicUrl),
                         visitCounts.getOrDefault(bakery.getId(), 0L),
                         favoriteBakeryIds.contains(bakery.getId())
                 ))
                 .toList();
 
         Long nextCursor = hasNext ? pageIds.get(pageIds.size() - 1) : null;
-        return new BakerySearchResponse(result, new PageInfo(result.size(), hasNext, nextCursor));
+        return new BakerySearchResponse(result, new CursorPageInfo(result.size(), hasNext, nextCursor));
+    }
+
+    @Transactional(readOnly = true)
+    public HotBakeryResponse.BakeryListDTO getHotBakery() {
+        return HotBakeryResponse.BakeryListDTO.builder()
+                .stores(bakeryRepository.findHotBakeries()
+                        .stream()
+                        .map(bakery -> HotBakeryResponse.BakerySimpleDTO.builder()
+                                .storeId(bakery.getId())
+                                .storeName(bakery.getName())
+                                // 시그니처 사진이 없는 빵집이 상위에 올라오면 orElse(null) 에서 NPE 가 났다.
+                                // 목록·상세(BakerySummaryResponse/BakeryDetail)와 같게 사진이 없으면 null 로 내려준다
+                                .imageUrl(bakery.getSignatureImages().stream()
+                                        .map(SignatureImage::getImageUrl)
+                                        .filter(StringUtils::hasText)
+                                        .findFirst()
+                                        .map(r2Service::getPublicUrl)
+                                        .orElse(null))
+                                .rating(bakery.getAvgRating())
+                                .region(bakery.getRegion() == null ? null : bakery.getRegion().getValue())
+                                .build())
+                        .toList())
+                .build();
     }
 
     @Transactional
@@ -103,7 +130,7 @@ public class BakeryService {
         long visitCount = visitRepository.sumVisitCountByBakeryId(storeId);
         boolean likes = userId != null && bookmarkRepository.existsByUserIdAndBakeryId(userId, storeId);
 
-        return new BakeryDetailResponse(BakeryDetail.from(bakery), visitCount, likes);
+        return new BakeryDetailResponse(BakeryDetail.from(bakery, r2Service::getPublicUrl), visitCount, likes);
     }
 
     public AttractionListResponse getNearbyAttractions(Long storeId) {
@@ -114,11 +141,12 @@ public class BakeryService {
                 .orElseGet(() -> fetchAndCacheAttractions(storeId, bakery));
     }
 
-    private void validateSearchRequest(BakerySearchRequest request) {
+    private void validateSearchRequest(Long userId, BakerySearchRequest request) {
         if (!List.of("distance", "rating", "visit").contains(request.sort())) throw new ApiException(ErrorCode.BAD_REQUEST);
         if ("distance".equals(request.sort()) && (request.lat() == null || request.lon() == null)) throw new ApiException(ErrorCode.BAD_REQUEST);
         if (request.lat() != null && (request.lat().compareTo(BigDecimal.valueOf(-90)) < 0 || request.lat().compareTo(BigDecimal.valueOf(90)) > 0)) throw new ApiException(ErrorCode.BAD_REQUEST);
         if (request.lon() != null && (request.lon().compareTo(BigDecimal.valueOf(-180)) < 0 || request.lon().compareTo(BigDecimal.valueOf(180)) > 0)) throw new ApiException(ErrorCode.BAD_REQUEST);
+        if (Boolean.TRUE.equals(request.favoriteOnly()) && userId == null) throw new ApiException(ErrorCode.UNAUTHORIZED_401);
     }
 
     private Map<Long, Long> getVisitCounts(List<Long> bakeryIds) {
@@ -170,7 +198,8 @@ public class BakeryService {
                 lat,
                 lng,
                 distance,
-                item.tel()
+                item.tel(),
+                item.cpyrhtDivCd()
         );
     }
 }

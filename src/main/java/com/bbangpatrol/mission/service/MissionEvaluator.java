@@ -15,6 +15,7 @@ import com.bbangpatrol.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -38,17 +39,19 @@ public class MissionEvaluator {
     private final MissionCounter missionCounter;
     private final UserRepository userRepository;
 
-    @Transactional
+    // AFTER_COMMIT 리스너에서 불린다. 그 시점에는 인증 트랜잭션이 이미 커밋됐지만 아직 묶여 있어서,
+    // 기본 REQUIRED 로 두면 끝난 트랜잭션에 얹혀 쓰기가 통째로 버려진다. 반드시 새 트랜잭션을 연다
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<MissionResponse> onReceiptVerified(Long userId, Region region) {
         return evaluate(userId, EnumSet.of(MissionType.receipt, MissionType.bakery), region);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<MissionResponse> onReviewCreated(Long userId, Region region) {
         return evaluate(userId, EnumSet.of(MissionType.review), region);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<MissionResponse> onItemDrawn(Long userId) {
         return evaluate(userId, EnumSet.of(MissionType.collection), Region.NONE);
     }

@@ -4,6 +4,7 @@ import com.bbangpatrol.common.util.ApiResponse;
 import com.bbangpatrol.visit.dto.VisitRequest;
 import com.bbangpatrol.visit.dto.VisitResponse;
 import com.bbangpatrol.visit.service.VerificationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +24,7 @@ public class VisitController {
     ResponseEntity<ApiResponse<VisitResponse>> receiptVerification(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long storeId,
-            @RequestBody VisitRequest request) {
+            @RequestBody @Valid VisitRequest request) {
 
         VisitResponse response = verificationService.doVerification(userId, storeId, request);
 

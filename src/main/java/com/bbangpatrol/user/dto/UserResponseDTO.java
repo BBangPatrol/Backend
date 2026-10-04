@@ -1,10 +1,14 @@
 package com.bbangpatrol.user.dto;
 
-import com.bbangpatrol.common.dto.PageInfo;
+import com.bbangpatrol.bakery.dto.HotBakeryResponse;
+import com.bbangpatrol.common.dto.OffsetPageInfo;
+import com.bbangpatrol.item.entity.ItemRank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import software.amazon.awssdk.services.s3.endpoints.internal.Value;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,7 +22,6 @@ public class UserResponseDTO {
     public static class MyPageDTO {
         String nickname;
         CollectionBook collectionBooks;
-        List<Coordinate> map;
         Integer point;
         ReviewStat reviews;
         List<MissionDTO> missions;
@@ -39,18 +42,10 @@ public class UserResponseDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CollectionItem {
-        Long id;
+        Long collectibleId;
         String name;
-        String url;
-    }
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class Coordinate {
-        BigDecimal lat;
-        BigDecimal lon;
+        String rank;
+        String image;
     }
 
     @Data
@@ -71,6 +66,7 @@ public class UserResponseDTO {
         String title;
         Integer count;
         Integer targetCount;
+        String status;
     }
 
     @Data
@@ -87,7 +83,7 @@ public class UserResponseDTO {
     @AllArgsConstructor
     public static class PointHistoryDTO {
         List<PointDTO> point_history;
-        PageInfo pageInfo;
+        OffsetPageInfo pageInfo;
     }
 
     @Data
@@ -109,7 +105,7 @@ public class UserResponseDTO {
         List<ReviewDTO> reviews;
         Long reviewCount;
         Long reviewLikes;
-        PageInfo pageInfo;
+        OffsetPageInfo pageInfo;
     }
 
     @Data
@@ -119,9 +115,14 @@ public class UserResponseDTO {
     public static class ReviewDTO {
         Long bakeryId;
         String bakeryName;
+        Long reviewId;
         Integer rating;
         String content;
+        List<Long> keywords;
+        List<String> images;
+        List<String> thumbnails;
         Integer likeCount;
+        Boolean isLike;
         LocalDateTime date;
     }
 
@@ -130,6 +131,35 @@ public class UserResponseDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class VisitedBakeryListDTO {
-        List<Coordinate> visits;
+        List<VisitBakeryDTO> visits;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class VisitBakeryDTO {
+        Long visitDetailId;
+        Long storeId;
+        String storeName;
+        String storeImageUrl;
+        String visitDate;
+        String state;
+        ReviewInfoDTO review;
+        String reviewDeadline;
+        Long remainingDays;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ReviewInfoDTO {
+        Long id;
+        Integer rating;
+        String content;
+        List<Long> keywords;
+        List<String> images;
+        List<String> thumbnails;
     }
 }

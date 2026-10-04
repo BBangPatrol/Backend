@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -28,14 +29,22 @@ public class TourApiClient {
     private final RestClient restClient = RestClient.create();
 
     public List<TourItem> getNearbyAttractions(BigDecimal lat, BigDecimal lng, int radius, int count) {
-        TourApiResponse response = restClient.get()
-                .uri(LOCATION_BASED_LIST_URI, serviceKey, count, MOBILE_APP, lng, lat, radius)
-                .retrieve()
-                .onStatus(status -> status.isError(), (req, res) -> {
-                    log.error("[TourApiClient] 관광지 조회 실패: {}", res.getStatusCode());
-                    throw new ApiException(ErrorCode.ATTRACTION_FETCH_FAILED);
-                })
-                .body(TourApiResponse.class);
+        TourApiResponse response;
+        try {
+            response = restClient.get()
+                    .uri(LOCATION_BASED_LIST_URI, serviceKey, count, MOBILE_APP, lng, lat, radius)
+                    .retrieve()
+                    .onStatus(status -> status.isError(), (req, res) -> {
+                        log.error("[TourApiClient] 관광지 조회 실패: {}", res.getStatusCode());
+                        throw new ApiException(ErrorCode.ATTRACTION_FETCH_FAILED);
+                    })
+                    .body(TourApiResponse.class);
+        } catch (RestClientException e) {
+            // 상태 코드는 200인데 본문이 예상과 다른 경우(형식 변경 등)가 여기로 온다.
+            // 그대로 두면 전역 핸들러가 502 COMMON502 로 내보내므로, 관광지 전용 코드로 바꿔 던진다.
+            log.error("[TourApiClient] 관광지 응답을 읽지 못함", e);
+            throw new ApiException(ErrorCode.ATTRACTION_FETCH_FAILED);
+        }
 
         if (response == null
                 || response.response() == null

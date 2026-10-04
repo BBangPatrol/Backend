@@ -6,6 +6,7 @@ import com.bbangpatrol.visit.entity.Visit;
 import com.bbangpatrol.common.enums.Region;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -82,10 +83,7 @@ public class Bakery {
     private List<Bookmark> bookmarks = new ArrayList<>();
 
     @Builder.Default
-    @OneToMany(mappedBy = "bakery")
-    private List<BakeryImage> bakeryImages = new ArrayList<>();
-
-    @Builder.Default
+    @BatchSize(size = 100)
     @OneToMany(mappedBy = "bakery")
     private List<SignatureImage> signatureImages = new ArrayList<>();
 }

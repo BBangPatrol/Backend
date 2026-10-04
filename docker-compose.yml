@@ -1,27 +1,48 @@
+## 운영/개발 공통 정의. 단독으로 쓰지 않고 환경별 파일을 겹쳐서 띄운다.
+##   운영: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+##   개발: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+## 프로젝트 이름(name)이 환경별 파일에 있어 컨테이너/네트워크/볼륨이 bbang-prod_*, bbang-dev_* 로 갈린다.
+## 그래서 container_name 은 두지 않는다. 두면 두 번째 스택이 이름 충돌로 뜨지 않는다.
+## 로컬 개발용 MySQL/Redis 는 docker-compose.local.yml 을 쓴다.
 services:
   backend:
-    build: .
-    container_name: backend
+    # CI 가 러너에서 빌드해 GHCR 로 올린 이미지를 받아 쓴다.
+    # 태그는 환경별 파일이 정한다. 롤백은 IMAGE_TAG=<커밋 sha> 로 띄우면 된다
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:8080:8080"
     env_file:
       - .env
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
       - REDIS_HOST=redis
+      # 없으면 컨테이너가 UTC 로 돌아 LocalDateTime.now() 가 9시간 이르게 저장된다
+      - TZ=Asia/Seoul
     depends_on:
       - redis
+    # OCR 서버(ocr-api)는 compose 밖에서 호스트 8000 에 떠 있다. 환경마다 도커 네트워크(게이트웨이 IP)가
+    # 달라지므로 OCR_BASE_URL=http://host.docker.internal:8000 으로 호스트를 가리킨다
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # json-file 기본값은 무제한이라 20G 디스크가 로그로 찬다.
+    # 영수증 OCR 원문까지 INFO 로 찍혀 한 건당 줄 수가 많다
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   redis:
+    # refresh token 키가 userId 기반이라 환경끼리 공유하면 DB 가 달라도 키가 겹친다. 환경마다 따로 띄운다
     image: redis:7-alpine
-    container_name: redis
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
       - redis-data:/data
     expose:
       - "6379"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   redis-data:

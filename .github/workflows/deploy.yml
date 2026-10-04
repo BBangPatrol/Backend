@@ -1,36 +1,145 @@
 name: Deploy Backend to EC2
 
+# main 은 운영, develop 은 개발 서버로 간다. 둘 다 같은 EC2 에 뜬다.
+#   운영: ~/deploy/prod, 127.0.0.1:8080, compose 프로젝트 bbang-prod
+#   개발: ~/deploy/dev,  127.0.0.1:8081, compose 프로젝트 bbang-dev
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+
+# 같은 환경 배포는 하나씩 돈다. 진행 중인 배포를 끊으면 compose up 중간에 멈출 수 있어 취소하지 않는다.
+# 운영과 개발은 서로 막지 않는다
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  # 이미지는 러너에서 만든다. EC2 에서 빌드하면 도커 빌드 캐시가 계속 쌓여
+  # 20G 디스크가 배포 몇 번 만에 100% 가 되고, gradle 이 캐시 디렉터리를 못 만들어 실패한다.
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      env: ${{ steps.meta.outputs.env }}
+      port: ${{ steps.meta.outputs.port }}
     steps:
-      - name: SSH into EC2 and deploy
-        uses: appleboy/ssh-action@v1.0.3
+      - uses: actions/checkout@v4
+
+      # GHCR 은 소문자 경로만 받는다. BBangPatrol/Backend 를 그대로 쓰면 거부된다
+      - name: 이미지 이름과 배포 환경 계산
+        id: meta
+        run: |
+          echo "image=${REGISTRY}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "env=prod" >> "$GITHUB_OUTPUT"
+            echo "port=8080" >> "$GITHUB_OUTPUT"
+          else
+            echo "env=dev" >> "$GITHUB_OUTPUT"
+            echo "port=8081" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: JDK 17 준비
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: 테스트
+        run: |
+          chmod +x ./gradlew
+          ./gradlew test --no-daemon
+
+      - name: GHCR 로그인
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      # :prod / :dev 는 각 환경의 현재 버전, :<sha> 는 롤백용
+      - name: 이미지 빌드 및 푸시
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.env }}
+            ${{ steps.meta.outputs.image }}:${{ github.sha }}
+          # 캐시는 러너 쪽에 둔다. EC2 디스크와 무관하다
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # EC2 에서 git pull 하지 않는다. 한 폴더를 두 브랜치가 번갈아 pull 하면
+      # 개발 배포가 운영 compose 파일까지 바꿔 버린다. 필요한 파일만 환경별 폴더로 보낸다
+      - name: compose 파일 전송
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          source: docker-compose.yml,docker-compose.${{ needs.build.outputs.env }}.yml
+          # 상대 경로는 홈 기준이다 (~/deploy/<env>)
+          target: deploy/${{ needs.build.outputs.env }}
+
+      - name: SSH into EC2 and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_ENV: ${{ needs.build.outputs.env }}
+          PORT: ${{ needs.build.outputs.port }}
+          IMAGE_TAG: ${{ github.sha }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: GHCR_USER,GHCR_TOKEN,DEPLOY_ENV,PORT,IMAGE_TAG
           script: |
             set -e
-            cd ~/Backend
-            git pull origin main
-            docker compose config -q
-            docker compose up -d --build
-            
-            echo "Waiting for backend to be healthy..."
+            cd ~/deploy/$DEPLOY_ENV
+            # .env 는 서버에서 직접 관리한다. 없으면 엉뚱한 DB 로 붙기 전에 멈춘다
+            test -f .env || { echo "~/deploy/$DEPLOY_ENV/.env 가 없다"; exit 1; }
+            # 이동 태그(:prod/:dev) 대신 커밋 sha 로 띄워 정확히 이번 빌드가 올라가게 한다
+            export IMAGE_TAG
+            compose() { docker compose -f docker-compose.yml -f docker-compose.$DEPLOY_ENV.yml "$@"; }
+            compose config -q
+
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            compose pull backend
+            compose up -d
+            docker logout ghcr.io
+
+            echo "Waiting for $DEPLOY_ENV backend to be healthy..."
             for i in $(seq 1 20); do
-              if curl -fsS http://localhost:8080/actuator/health > /dev/null 2>&1; then
+              if curl -fsS http://localhost:$PORT/actuator/health > /dev/null 2>&1; then
                 echo "Backend is up!"
+                # 직전 배포 이미지는 롤백용으로 남기고 그보다 오래된 것만 정리한다.
+                # 돌고 있는 쪽(운영/개발) 이미지는 prune 대상이 아니다
+                docker image prune -af --filter "until=72h" || true
                 exit 0
               fi
               echo "Not ready yet ($i/20), retrying in 3s..."
               sleep 3
             done
-            
+
             echo "Backend failed to become healthy"
-            docker compose logs --tail=100 backend
+            compose logs --tail=100 backend
             exit 1

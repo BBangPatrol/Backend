@@ -1,6 +1,7 @@
 package com.bbangpatrol.mission.repository;
 
 import com.bbangpatrol.common.enums.Region;
+import com.bbangpatrol.item.entity.ItemRank;
 import com.bbangpatrol.mission.entity.MissionProgress;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
@@ -25,7 +26,9 @@ public interface MissionCountRepository extends Repository<MissionProgress, Long
     @Query("SELECT COUNT(r) FROM Review r WHERE r.user.id = :userId AND r.deletedAt IS NULL")
     long countReviews(Long userId);
 
-    // user_item 이 이미 user + item 유니크
     @Query("SELECT COUNT(ui) FROM UserItem ui WHERE ui.user.id = :userId")
     long countDistinctItems(Long userId);
+
+    @Query("SELECT COUNT(ui) FROM UserItem ui WHERE ui.user.id = :userId AND ui.item.rank = :rank")
+    long countDistinctItemsByRank(Long userId, ItemRank rank);
 }

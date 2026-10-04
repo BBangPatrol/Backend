@@ -1,5 +1,6 @@
 package com.bbangpatrol.visit.entity;
 
+import com.bbangpatrol.review.entity.Review;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.*;
@@ -31,4 +32,7 @@ public class VisitDetail {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "visit_id")
     private Visit visit;
+
+    @OneToOne(mappedBy = "visitDetail", fetch = FetchType.LAZY)
+    private Review review;
 }
