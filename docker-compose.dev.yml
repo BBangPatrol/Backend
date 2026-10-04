@@ -1,0 +1,17 @@
+name: bbang-dev
+
+services:
+  backend:
+    image: ghcr.io/bbangpatrol/backend:${IMAGE_TAG:-dev}
+    ports:
+      - "127.0.0.1:8081:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      # 상한이 걸리면 JVM 은 기본으로 그 1/4 만 힙으로 잡는다. 리뷰 사진 3장을 디코딩하기엔 모자라 올리되,
+      # 메타스페이스·스레드 스택 몫을 남겨야 상한에 걸려 컨테이너째 죽지 않는다
+      - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=60
+    # 운영과 같은 EC2(RAM 2G, 운영 백엔드가 ~450M)에 뜬다. 개발 서버 때문에 운영이 OOM 으로 죽지 않도록 상한을 건다
+    mem_limit: 512m
+
+  redis:
+    mem_limit: 128m
