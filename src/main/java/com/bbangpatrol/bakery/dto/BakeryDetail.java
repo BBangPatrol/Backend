@@ -2,7 +2,6 @@ package com.bbangpatrol.bakery.dto;
 
 import com.bbangpatrol.bakery.entity.Bakery;
 import com.bbangpatrol.bakery.entity.SignatureImage;
-import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.function.UnaryOperator;
@@ -36,13 +35,8 @@ public record BakeryDetail(
                 bakery.getHours(),
                 bakery.getAvgRating(),
                 bakery.getSignatureMenu(),
-                // 빵집당 시그니처 사진 한 장을 대표 이미지로 사용한다
-                bakery.getSignatureImages().stream()
-                        .map(SignatureImage::getImageUrl)
-                        .filter(StringUtils::hasText)
-                        .findFirst()
-                        .map(toUrl)
-                        .orElse(null),
+                // 사진이 없으면 "이미지 준비중입니다" 대체 이미지가 내려간다
+                toUrl.apply(SignatureImage.representativeKey(bakery.getSignatureImages())),
                 bakery.getSummary(),
                 bakery.getContent()
         );

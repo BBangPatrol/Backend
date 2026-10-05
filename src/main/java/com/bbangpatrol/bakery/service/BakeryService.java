@@ -87,14 +87,9 @@ public class BakeryService {
                         .map(bakery -> HotBakeryResponse.BakerySimpleDTO.builder()
                                 .storeId(bakery.getId())
                                 .storeName(bakery.getName())
-                                // 시그니처 사진이 없는 빵집이 상위에 올라오면 orElse(null) 에서 NPE 가 났다.
-                                // 목록·상세(BakerySummaryResponse/BakeryDetail)와 같게 사진이 없으면 null 로 내려준다
-                                .imageUrl(bakery.getSignatureImages().stream()
-                                        .map(SignatureImage::getImageUrl)
-                                        .filter(StringUtils::hasText)
-                                        .findFirst()
-                                        .map(r2Service::getPublicUrl)
-                                        .orElse(null))
+                                // 목록·상세와 같게 사진이 없으면 대체 이미지로 내려준다
+                                .imageUrl(r2Service.getPublicUrl(
+                                        SignatureImage.representativeKey(bakery.getSignatureImages())))
                                 .rating(bakery.getAvgRating())
                                 .region(bakery.getRegion() == null ? null : bakery.getRegion().getValue())
                                 .build())
