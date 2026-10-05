@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,19 +17,17 @@ public interface BakeryRepository extends JpaRepository<Bakery, Long> {
     // 영수증만 보고 가게를 찾을 때 쓴다 (StoreResolver). 100곳 남짓이라 전부 읽어 메모리에서 맞춘다
     List<Bakery> findAllByDeletedAtIsNull();
 
+    // 거리순(ST_Distance_Sphere + lat/lon)은 폐기했다. 프론트가 위치를 보낸 적이 없어 실제로 쓰이지 않았다.
+    // 방문·평점이 아직 거의 없어 대부분 동점이다. 동점이면 시그니처 사진이 있는 빵집을 먼저 두고
+    // 그다음 최근 등록 순으로 한다. 그냥 b.id DESC 만 두면 사진 없는 축제 시드(V20)가 목록 맨 앞을 다 차지한다
     @Query(value = """
             WITH ranked_bakery AS (
                 SELECT b.id,
                        ROW_NUMBER() OVER (
                            ORDER BY
-                             CASE WHEN :sort = 'distance' THEN
-                               CASE
-                                 WHEN b.lat IS NULL OR b.lng IS NULL THEN 999999999
-                                 ELSE ST_Distance_Sphere(POINT(b.lng, b.lat), POINT(:lon, :lat))
-                               END
-                             END ASC,
                              CASE WHEN :sort = 'rating' THEN b.avg_rating END DESC,
                              CASE WHEN :sort = 'visit' THEN COALESCE(SUM(v.count), 0) END DESC,
+                             EXISTS (SELECT 1 FROM sig_image si WHERE si.bakery_id = b.id) DESC,
                              b.id DESC
                        ) AS sort_order
                 FROM bakery b
@@ -39,7 +36,7 @@ public interface BakeryRepository extends JpaRepository<Bakery, Long> {
                 WHERE b.deleted_at IS NULL
                   AND (:name IS NULL OR LOWER(b.name) LIKE LOWER(CONCAT('%', :name, '%')))
                   AND (:favoriteOnly = FALSE OR bm.id IS NOT NULL)
-                GROUP BY b.id, b.lng, b.lat, b.avg_rating
+                GROUP BY b.id, b.avg_rating
             )
             SELECT id
             FROM ranked_bakery
@@ -54,8 +51,6 @@ public interface BakeryRepository extends JpaRepository<Bakery, Long> {
     List<Long> findBakeryIdsForSearch(
             @Param("sort") String sort,
             @Param("name") String name,
-            @Param("lat") BigDecimal lat,
-            @Param("lon") BigDecimal lon,
             @Param("cursor") Long cursor,
             @Param("favoriteOnly") boolean favoriteOnly,
             @Param("userId") Long userId,
