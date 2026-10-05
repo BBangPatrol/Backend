@@ -18,7 +18,8 @@ public interface BakeryRepository extends JpaRepository<Bakery, Long> {
     List<Bakery> findAllByDeletedAtIsNull();
 
     // 거리순(ST_Distance_Sphere + lat/lon)은 폐기했다. 프론트가 위치를 보낸 적이 없어 실제로 쓰이지 않았다.
-    // 방문·평점이 아직 거의 없어 동점이 많고, 동점은 b.id DESC 라 최근 등록 순으로 보인다
+    // 방문·평점이 아직 거의 없어 대부분 동점이다. 동점이면 시그니처 사진이 있는 빵집을 먼저 두고
+    // 그다음 최근 등록 순으로 한다. 그냥 b.id DESC 만 두면 사진 없는 축제 시드(V20)가 목록 맨 앞을 다 차지한다
     @Query(value = """
             WITH ranked_bakery AS (
                 SELECT b.id,
@@ -26,6 +27,7 @@ public interface BakeryRepository extends JpaRepository<Bakery, Long> {
                            ORDER BY
                              CASE WHEN :sort = 'rating' THEN b.avg_rating END DESC,
                              CASE WHEN :sort = 'visit' THEN COALESCE(SUM(v.count), 0) END DESC,
+                             EXISTS (SELECT 1 FROM sig_image si WHERE si.bakery_id = b.id) DESC,
                              b.id DESC
                        ) AS sort_order
                 FROM bakery b
