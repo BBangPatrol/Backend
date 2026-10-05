@@ -26,7 +26,9 @@ public record BakerySummaryResponse(
                 bakery.getAvgRating(),
                 bakery.getLat(),
                 bakery.getLng(),
-                bakery.getSignatureMenu()
+                // 프론트가 signatureMenu.split(",") 으로 태그를 만든다. 대표 메뉴가 없는 빵집(V20 축제 시드 일부)은
+                // null 대신 빈 문자열로 내려 지도 팝업/카드가 깨지지 않게 한다
+                bakery.getSignatureMenu() == null ? "" : bakery.getSignatureMenu()
         );
     }
 }

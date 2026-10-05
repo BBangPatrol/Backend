@@ -34,7 +34,8 @@ public record BakeryDetail(
                 bakery.getPhone(),
                 bakery.getHours(),
                 bakery.getAvgRating(),
-                bakery.getSignatureMenu(),
+                // 목록(BakerySummaryResponse)과 같게 대표 메뉴가 없으면 null 대신 빈 문자열
+                bakery.getSignatureMenu() == null ? "" : bakery.getSignatureMenu(),
                 // 사진이 없으면 "이미지 준비중입니다" 대체 이미지가 내려간다
                 toUrl.apply(SignatureImage.representativeKey(bakery.getSignatureImages())),
                 bakery.getSummary(),
