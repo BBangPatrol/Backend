@@ -2,7 +2,6 @@ package com.bbangpatrol.bakery.dto;
 
 import com.bbangpatrol.bakery.entity.Bakery;
 import com.bbangpatrol.bakery.entity.SignatureImage;
-import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.function.UnaryOperator;
@@ -22,23 +21,12 @@ public record BakerySummaryResponse(
         return new BakerySummaryResponse(
                 bakery.getId(),
                 bakery.getName(),
-                // 빵집당 시그니처 사진 한 장을 대표 이미지로 사용한다.
-                // 목록은 빵집 20개를 한 번에 받으므로 원본(평균 610KB) 대신 썸네일(약 28KB)을 쓴다.
-                // 썸네일이 없는 행은 원본으로 폴백한다
-                bakery.getSignatureImages().stream()
-                        .map(BakerySummaryResponse::listImageKey)
-                        .filter(StringUtils::hasText)
-                        .findFirst()
-                        .map(toUrl)
-                        .orElse(null),
+                // 사진이 없으면 "이미지 준비중입니다" 대체 썸네일이 내려간다
+                toUrl.apply(SignatureImage.representativeThumbnailKey(bakery.getSignatureImages())),
                 bakery.getAvgRating(),
                 bakery.getLat(),
                 bakery.getLng(),
                 bakery.getSignatureMenu()
         );
-    }
-
-    private static String listImageKey(SignatureImage image) {
-        return StringUtils.hasText(image.getThumbnailUrl()) ? image.getThumbnailUrl() : image.getImageUrl();
     }
 }

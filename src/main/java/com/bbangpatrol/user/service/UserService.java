@@ -1,6 +1,7 @@
 package com.bbangpatrol.user.service;
 
 import com.bbangpatrol.bakery.entity.Bakery;
+import com.bbangpatrol.bakery.entity.SignatureImage;
 import com.bbangpatrol.common.dto.OffsetPageInfo;
 import com.bbangpatrol.common.exception.ApiException;
 import com.bbangpatrol.common.service.R2Service;
@@ -235,7 +236,9 @@ public class UserService {
                             .visitDetailId(visitDetail.getId())
                             .storeId(bakery.getId())
                             .storeName(bakery.getName())
-                            .storeImageUrl(r2Service.getPublicUrl(bakery.getSignatureImages().get(0).getImageUrl()))
+                            // 사진이 없는 빵집은 get(0) 에서 IndexOutOfBounds 가 났다. 목록·상세와 같게 대체 이미지로
+                            .storeImageUrl(r2Service.getPublicUrl(
+                                    SignatureImage.representativeKey(bakery.getSignatureImages())))
                             .visitDate(visitedAt.toString())
                             .state(state)
                             .review(review == null ? null : UserResponseDTO.ReviewInfoDTO.builder()
