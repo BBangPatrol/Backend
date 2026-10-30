@@ -201,7 +201,7 @@ public class GeminiClient {
                 throw new ApiException(ErrorCode.RECEIPT_PARSE_FAILED);
             }
 
-            log.info("[GEMINI] 영수증 파싱 결과: {}", resultText);
+            log.info("[GEMINI] 영수증 파싱 응답 수신. length={}", resultText.length());
 
             return objectMapper.readValue( // ObjectMapper를 통해 OcrResponse 형식으로 변환
                     resultText,

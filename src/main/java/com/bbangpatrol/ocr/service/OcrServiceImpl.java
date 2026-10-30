@@ -122,19 +122,18 @@ public class OcrServiceImpl implements OcrService {
 
         // FastAPI 호출해서 이미지 넘기기
         String ocrText = ocrClient.extractText(receipt);
-        log.info("[OCR SERVICE] 결과:\n{}", ocrText);
+        log.info("[OCR SERVICE] 텍스트 추출 완료. length={}", ocrText == null ? 0 : ocrText.length());
 
         // 영수증에서 추출한 글자 LLM에 전달
         ReceiptParseResult parsedResult = geminiClient.parseReceipt(ocrText);
 
         log.info(
-                "[OCR SERVICE] LLM 파싱 결과: bakeryName={}, address={}, date={}, amount={}, menu={}, receiptNum={}",
+                "[OCR SERVICE] LLM 파싱 완료: bakeryName={}, hasAddress={}, hasDate={}, hasAmount={}, hasReceiptNum={}",
                 parsedResult.bakeryName(),
-                parsedResult.address(),
-                parsedResult.date(),
-                parsedResult.amount(),
-                parsedResult.menu(),
-                parsedResult.receiptNum()
+                parsedResult.address() != null,
+                parsedResult.date() != null,
+                parsedResult.amount() != null,
+                parsedResult.receiptNum() != null
         );
 
         // 영수증에 필요한 정보가 다 있는지 확인

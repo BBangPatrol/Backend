@@ -48,7 +48,6 @@ public class VerificationServiceImpl implements VerificationService {
         ReceiptTokenService.ReceiptTicket ticket =
                 receiptTokenService.consumeToken(request.getVerificationToken(), userId, storeId);
         String receiptNum = ticket.receiptNum();
-        log.info("[Verification Service] 토큰을 통해 조회한 사용자의 영수증 승인번호 조회 {}", receiptNum);
 
         int totalAmount = ticket.amount() != null ? ticket.amount() : request.getTotalAmount();
         LocalDate visitedAt = ticket.date() != null ? ticket.date() : request.getDate();
